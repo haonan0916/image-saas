@@ -1,0 +1,29 @@
+{
+  "name": "@image-saas/upload-button",
+  "version": "0.0.1",
+  "main": "dist/upload-button.cjs",
+  "module": "dist/upload-button.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "build:dts": "tsup lib/index.ts --dts-only --format esm --tsconfig tsconfig.dts.json",
+    "dev": "vite"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "preact": "^10.27.2",
+    "vite": "^7.2.4",
+    "@preact/preset-vite": "^2.10.2",
+    "@types/node": "^24.10.1",
+    "typescript": "~5.9.3",
+    "tsup": "^8.5.1",
+    "@uppy/core": "^5.1.1"
+  },
+  "peerDependencies": {
+    "preact": "^10.27.2",
+    "@uppy/core": "^5.1.1"
+  }
+}

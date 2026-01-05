@@ -1,0 +1,25 @@
+{
+  "name": "imb-integrate-demo",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "^4.2.2",
+    "vue": "^3.5.26",
+    "vue-router": "^4.6.4",
+    "@image-saas/api": "workspace:*",
+    "@image-saas/upload-button": "workspace:*",
+    "@image-saas/preact-vue-connect": "workspace:*",
+    "@image-saas/uploader": "workspace:*",
+    "@trpc/client": "^11.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "@types/jsonwebtoken": "^9.0.5",
+    "preact": "^10.27.2"
+  }
+}

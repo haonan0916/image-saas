@@ -1,0 +1,21 @@
+{
+  "name": "@image-saas/preact-vue-connect",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "preact": "^10.27.2",
+    "vue": "^3.5.26"
+  },
+  "peerDependencies": {
+    "preact": "^10.27.2",
+    "vue": "^3.5.26"
+  }
+}
