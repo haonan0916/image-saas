@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createUserSchema } from "@/server/db/validate-schema";
+import { createAppSchema } from "@/server/db/validate-schema";
 export function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams;
   const name = query.get("name");
   const email = query.get("email");
   const id = query.get("id");
-  const result = createUserSchema.safeParse({ name, email, id });
+  const result = createAppSchema.safeParse({ name, email, id });
   if (!result.success) {
     return NextResponse.json({ error: result.error });
   }

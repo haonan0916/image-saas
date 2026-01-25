@@ -29,9 +29,9 @@ export default function StoragePage({
         return prev.map((p) =>
           p.id === appId
             ? {
-                ...p,
-                storageId,
-              }
+              ...p,
+              storageId,
+            }
             : p
         );
       });
@@ -66,15 +66,15 @@ export default function StoragePage({
                 <AccordionContent>
                   <div className="text-lg mb-6">
                     <div className="flex justify-between items-center">
-                      <span>region</span>
+                      <span>Region</span>
                       <span>{storage.configuration.region}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span>bucket</span>
+                      <span>Bucket</span>
                       <span>{storage.configuration.bucket}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span>apiEndpoint</span>
+                      <span>API Endpoint</span>
                       <span>{storage.configuration.apiEndpoint}</span>
                     </div>
                   </div>

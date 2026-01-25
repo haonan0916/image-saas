@@ -12,8 +12,8 @@ export default function CreateAppError({
   return (
     <div>
       <div className="w-64 p-8 mx-auto flex justify-center items-center flex-col">
-        <span>Create App Failed</span>
-        <Button onClick={reset}>Reset</Button>
+        <span>Save failed</span>
+        <Button onClick={reset}>Try again</Button>
       </div>
     </div>
   );

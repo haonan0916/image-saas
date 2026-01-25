@@ -4,6 +4,12 @@ import { appRouters } from "./routes/apps";
 import { storagesRouters } from "./routes/storages";
 import { apiKeysRouters } from "./routes/apiKeys";
 import { userRouters } from "./routes/user";
+import { datasetsRouters } from "./routes/datasets";
+import { modelsRouters } from "./routes/models";
+import { dehazeTasksRouters } from "./routes/dehaze-tasks";
+import { chatRoutes } from "./routes/chat";
+import { chatLangChainRoutes } from "./routes/chat-langchain";
+import { ragRoutes } from "./routes/rag";
 
 export const appRouter = router({
   file: fileRoutes,
@@ -11,6 +17,12 @@ export const appRouter = router({
   storage: storagesRouters,
   apiKeys: apiKeysRouters,
   user: userRouters,
+  datasets: datasetsRouters,
+  models: modelsRouters,
+  dehazeTasks: dehazeTasksRouters,
+  chat: chatRoutes, // Original Ollama-only chat routes
+  chatLangChain: chatLangChainRoutes, // New LangChain multi-model chat routes
+  rag: ragRoutes, // RAG knowledge base routes
 });
 
 export type AppRouter = typeof appRouter;

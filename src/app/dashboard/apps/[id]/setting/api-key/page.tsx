@@ -29,7 +29,7 @@ function KeyString({ id }: { id: number }) {
         onClick={() => {
           if (key) {
             copy(key);
-            toast("secrect key copied!");
+            toast("Key copied");
           }
         }}
       >
@@ -74,7 +74,7 @@ export default function ApiKeyPage({
     <div className="h-full flex justify-center">
       <div className="container pt-10">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl mb-6">Api Keys</h1>
+          <h1 className="text-3xl mb-6">API Keys</h1>
           <Popover>
             <PopoverTrigger asChild>
               <Button>
@@ -109,7 +109,7 @@ export default function ApiKeyPage({
                 <AccordionTrigger>{apiKey.name}</AccordionTrigger>
                 <AccordionContent>
                   <div className="flex justify-between text-lg mb-4">
-                    <span>clientId</span>
+                    <span>Client ID</span>
                     <div className="flex justify-end items-center gap-2">
                       <span>{apiKey.clientId}</span>
                       <Button
@@ -117,7 +117,7 @@ export default function ApiKeyPage({
                         variant="ghost"
                         onClick={() => {
                           copy(apiKey.clientId);
-                          toast("clientId copied!");
+                          toast("Client ID copied");
                         }}
                       >
                         <Copy></Copy>Copy
@@ -125,7 +125,7 @@ export default function ApiKeyPage({
                     </div>
                   </div>
                   <div className="flex justify-between text-lg mb-4">
-                    <span>key</span>
+                    <span>Key</span>
                     {!showKeyMap[apiKey.id] && (
                       <Button
                         onClick={() => {

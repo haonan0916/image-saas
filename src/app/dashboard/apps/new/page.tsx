@@ -6,7 +6,7 @@ import { serverCaller } from "@/utils/trpc";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "./SubmitButton";
 
-export default function CreateApp() {
+export default async function CreateApp() {
   async function createApp(formData: FormData) {
     "use server";
     const name = formData.get("name");
@@ -38,7 +38,7 @@ export default function CreateApp() {
           minLength={3}
           required
         ></Input>
-        <Textarea name="description" placeholder="Description"></Textarea>
+        <Textarea name="description" placeholder="App Description"></Textarea>
         <SubmitButton />
       </form>
     </div>

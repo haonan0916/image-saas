@@ -7,7 +7,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { withAppProcedure, router } from "../trpc";
 import { db } from "../db/db";
-import { apps, files } from "../db/schema";
+import { apps, files, datasetImages } from "../db/schema";
 import { v4 as uuid } from "uuid";
 import { asc, desc, eq, isNull, sql, and, count } from "drizzle-orm";
 import { filesCanOrderByColumns } from "../db/validate-schema";
@@ -210,11 +210,47 @@ export const fileOpenRoutes = router({
   deleteFile: withAppProcedure
     .input(z.string())
     .mutation(async ({ ctx, input }) => {
-      return db
-        .update(files)
-        .set({
-          deletedAt: new Date(),
-        })
-        .where(eq(files.id, input));
+      return db.transaction(async (tx) => {
+        // 首先获取要删除的文件信息
+        const fileToDelete = await tx.query.files.findFirst({
+          where: (files, { eq, and, isNull }) =>
+            and(
+              eq(files.id, input),
+              eq(files.userId, ctx.user.id),
+              isNull(files.deletedAt)
+            ),
+        });
+
+        if (!fileToDelete) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "File not found",
+          });
+        }
+
+        // 软删除文件
+        await tx
+          .update(files)
+          .set({
+            deletedAt: new Date(),
+          })
+          .where(eq(files.id, input));
+
+        // 同时删除所有引用该文件URL的数据集图片
+        await tx
+          .update(datasetImages)
+          .set({
+            deletedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(datasetImages.originalUrl, fileToDelete.url),
+              eq(datasetImages.userId, ctx.user.id),
+              isNull(datasetImages.deletedAt)
+            )
+          );
+
+        return { success: true };
+      });
     }),
 });

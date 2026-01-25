@@ -47,6 +47,9 @@ export const appRouters = router({
       where: (apps, { eq, and, isNull }) =>
         and(eq(apps.userId, ctx.session.user.id), isNull(apps.deletedAt)),
       orderBy: [desc(apps.createdAt)],
+      with: {
+        storage: true,
+      },
     });
 
     return result;

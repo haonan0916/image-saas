@@ -1,3 +1,5 @@
+"use client";
+
 export default function DefaultNav() {
-  return <div>DashBoard</div>;
+  return <div>Dashboard</div>;
 }

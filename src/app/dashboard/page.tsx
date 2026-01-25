@@ -17,7 +17,7 @@ export default function DashboardAppList() {
       {isLoading ? (
         <div>Loading...</div>
       ) : (
-        <div className="flex w-full max-w-md flex-col gap-2 rounded-md border p-2">
+        <div className="flex w-full max-w-lg flex-col gap-2 rounded-md border p-2">
           {apps?.map((app) => (
             <div
               key={app.id}
@@ -26,7 +26,7 @@ export default function DashboardAppList() {
               <div>
                 <h2 className="text-xl">{app.name}</h2>
                 <p className="text-base-content/60">
-                  {app.description ? app.description : "(no description)"}
+                  {app.description ? app.description : "No description"}
                 </p>
               </div>
               <div>

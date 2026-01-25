@@ -27,6 +27,8 @@ export const withSessionMiddleware = t.middleware(async ({ ctx, next }) => {
   });
 });
 
+export const publicProcedure = withLoggerProcedure;
+
 export const protectedProcedure = withLoggerProcedure
   .use(withSessionMiddleware)
   .use(async ({ ctx, next }) => {
