@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/hooks/useLocale";
 
 interface ImageCompareDebugProps {
   beforeImage: string;
@@ -16,19 +17,25 @@ interface ImageCompareDebugProps {
 export function ImageCompareDebug({
   beforeImage,
   afterImage,
-  beforeLabel = "去雾前",
-  afterLabel = "去雾后",
+  beforeLabel,
+  afterLabel,
   className,
   aspectRatio = "16/9",
   onError,
 }: ImageCompareDebugProps) {
+  const { dict } = useLocale();
+
+  // 使用国际化的默认标签
+  const finalBeforeLabel = beforeLabel || dict.image.beforeDehaze;
+  const finalAfterLabel = afterLabel || dict.image.afterDehaze;
+
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoaded, setIsLoaded] = useState({ before: false, after: false });
   const [hasError, setHasError] = useState({ before: false, after: false });
-  const [imageInfo, setImageInfo] = useState({ 
-    before: { width: 0, height: 0 }, 
-    after: { width: 0, height: 0 } 
+  const [imageInfo, setImageInfo] = useState({
+    before: { width: 0, height: 0 },
+    after: { width: 0, height: 0 }
   });
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -99,12 +106,12 @@ export function ImageCompareDebug({
       width: img.width,
       height: img.height
     });
-    
+
     setImageInfo(prev => ({
       ...prev,
       [type]: { width: img.naturalWidth, height: img.naturalHeight }
     }));
-    
+
     setIsLoaded(prev => {
       const newState = { ...prev, [type]: true };
       console.log('Load state updated:', newState);
@@ -162,7 +169,7 @@ export function ImageCompareDebug({
         <div className="absolute inset-0">
           <img
             src={afterImage}
-            alt={afterLabel}
+            alt={finalAfterLabel}
             className="w-full h-full object-contain bg-gray-200"
             draggable={false}
             onLoad={(e) => handleImageLoad('after', e)}
@@ -170,7 +177,7 @@ export function ImageCompareDebug({
           />
           {/* 去雾后标签 */}
           <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-md text-sm font-medium">
-            {afterLabel}
+            {finalAfterLabel}
           </div>
         </div>
 
@@ -183,7 +190,7 @@ export function ImageCompareDebug({
         >
           <img
             src={beforeImage}
-            alt={beforeLabel}
+            alt={finalBeforeLabel}
             className="w-full h-full object-contain bg-gray-200"
             draggable={false}
             onLoad={(e) => handleImageLoad('before', e)}
@@ -191,7 +198,7 @@ export function ImageCompareDebug({
           />
           {/* 去雾前标签 */}
           <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-md text-sm font-medium">
-            {beforeLabel}
+            {finalBeforeLabel}
           </div>
         </div>
 

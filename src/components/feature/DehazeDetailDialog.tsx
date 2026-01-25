@@ -21,6 +21,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale } from "@/hooks/useLocale";
 
 interface DehazeDetailDialogProps {
   taskId: string | null;
@@ -29,12 +30,11 @@ interface DehazeDetailDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function DehazeDetailDialog({
-  taskId,
+export function DehazeDetailDialog({ taskId,
   imageIndex = 0,
   open,
-  onOpenChange,
-}: DehazeDetailDialogProps) {
+  onOpenChange, }: DehazeDetailDialogProps) {
+  const { dict } = useLocale();
   const [currentImageIndex, setCurrentImageIndex] = useState(imageIndex);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
@@ -59,16 +59,16 @@ export function DehazeDetailDialog({
 
   const getStatusLabel = (status: string) => {
     const statusMap = {
-      pending: "等待中",
-      processing: "处理中",
-      completed: "已完成",
-      failed: "失败",
+      pending: dict.tasks.status.pending,
+      processing: dict.tasks.status.processing,
+      completed: dict.tasks.status.completed,
+      failed: dict.tasks.status.failed,
     };
     return statusMap[status as keyof typeof statusMap] || status;
   };
 
   const formatProcessingTime = (seconds: number | null) => {
-    if (!seconds) return "未知";
+    if (!seconds) return dict.tasks.unknown;
     if (seconds < 60) return `${seconds}秒`;
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -83,12 +83,12 @@ export function DehazeDetailDialog({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("开始下载图片");
+    toast.success(dict.image.downloadStart);
   };
 
   const handleImageError = (error: string) => {
     console.error("Image load error:", error);
-    toast.error("图片加载失败");
+    toast.error(dict.image.loadError);
   };
 
   if (!taskId) return null;
@@ -188,8 +188,8 @@ export function DehazeDetailDialog({
                       <ImageCompare
                         beforeImage={currentInputImage.originalUrl}
                         afterImage={currentOutputImage.processedUrl || currentOutputImage.originalUrl}
-                        beforeLabel="去雾前"
-                        afterLabel="去雾后"
+                        beforeLabel={dict.image.beforeDehaze}
+                        afterLabel={dict.image.afterDehaze}
                         className="h-full"
                         onError={handleImageError}
                       />
@@ -262,7 +262,7 @@ export function DehazeDetailDialog({
                         <div>
                           <p className="text-sm text-muted-foreground">创建时间</p>
                           <p className="text-sm font-medium">
-                            {task.createdAt ? new Date(task.createdAt).toLocaleString() : "未知"}
+                            {task.createdAt ? new Date(task.createdAt).toLocaleString() : dict.tasks.unknown}
                           </p>
                         </div>
                       </div>

@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/hooks/useLocale";
 
 // 类型定义
 interface ChatSession {
@@ -85,6 +86,7 @@ const UserAvatar = ({ user }: { user: { name?: string | null; image?: string | n
 };
 
 export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId'>) {
+  const { dict } = useLocale();
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
@@ -166,7 +168,7 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
   // 获取当前会话详情
   const { data: sessionData, refetch: refetchCurrentSession } = trpcClientReact.chat.getSession.useQuery(
     { sessionId: currentSessionId! },
-    { 
+    {
       enabled: !!currentSessionId && !!sessions?.find(s => s.id === currentSessionId) // 确保会话存在于列表中
     }
   );
@@ -282,7 +284,7 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
   const handleCreateSession = useCallback(async () => {
     try {
       const session = await createSessionMutation.mutateAsync({
-        title: "新对话",
+        title: dict.chat.newChat,
       });
       setCurrentSessionId(session.id);
       await refetchSessions();
@@ -291,7 +293,7 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
       toast.error("创建对话失败");
       console.error(error);
     }
-  }, [createSessionMutation, refetchSessions]);
+  }, [createSessionMutation, refetchSessions, dict.chat.newChat]);
 
   // 发送消息（流式）
   const handleSendMessage = async () => {
@@ -676,7 +678,7 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                                     className="bg-red-600 hover:bg-red-700 focus:ring-red-600 disabled:opacity-50"
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
-                                    {deleteSessionMutation.isPending ? "删除中..." : "确认删除"}
+                                    {deleteSessionMutation.isPending ? "删除中..." : dict.chat.confirmDelete}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>

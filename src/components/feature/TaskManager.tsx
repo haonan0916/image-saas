@@ -27,6 +27,7 @@ import {
     Zap
 } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale } from "@/hooks/useLocale";
 
 interface TaskManagerProps {
     appId: string;
@@ -34,6 +35,7 @@ interface TaskManagerProps {
 }
 
 export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
+    const { dict } = useLocale();
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<string>("all");
     const [showDehazeDetail, setShowDehazeDetail] = useState(false);
@@ -82,7 +84,7 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
     // 创建任务
     const createTaskMutation = trpcClientReact.dehazeTasks.createDehazeTask.useMutation({
         onSuccess: () => {
-            toast.success("任务创建成功");
+            toast.success(dict.tasks.createSuccess);
             setShowCreateDialog(false);
             setNewTask({ name: "", datasetId: "", modelId: "", inputImageIds: [] });
             utils.dehazeTasks.listDehazeTasks.invalidate({ appId });
@@ -96,7 +98,7 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
     // 取消任务
     const cancelTaskMutation = trpcClientReact.dehazeTasks.cancelTask.useMutation({
         onSuccess: () => {
-            toast.success("任务已取消");
+            toast.success(dict.tasks.cancelSuccess);
             utils.dehazeTasks.listDehazeTasks.invalidate({ appId });
             utils.dehazeTasks.getTaskStats.invalidate(appId);
         },
@@ -181,16 +183,16 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
 
     const getStatusLabel = (status: string) => {
         const statusMap = {
-            pending: "等待中",
-            processing: "处理中",
-            completed: "已完成",
-            failed: "失败",
+            pending: dict.tasks.status.pending,
+            processing: dict.tasks.status.processing,
+            completed: dict.tasks.status.completed,
+            failed: dict.tasks.status.failed,
         };
         return statusMap[status as keyof typeof statusMap] || status;
     };
 
     const formatProcessingTime = (seconds: number | null) => {
-        if (!seconds) return "未知";
+        if (!seconds) return dict.tasks.unknown;
         if (seconds < 60) return `${seconds}秒`;
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
@@ -250,7 +252,7 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
                                     onValueChange={(value: string) => setNewTask(prev => ({ ...prev, datasetId: value }))}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="选择数据集" />
+                                        <SelectValue placeholder={dict.tasks.selectDataset} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {datasets?.map((dataset) => (
@@ -274,7 +276,7 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
                                     onValueChange={(value: string) => setNewTask(prev => ({ ...prev, modelId: value }))}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="选择模型" />
+                                        <SelectValue placeholder={dict.tasks.selectModel} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {models?.map((model) => (
@@ -296,7 +298,7 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
                                     取消
                                 </Button>
                                 <Button onClick={handleCreateTask} disabled={createTaskMutation.isPending}>
-                                    {createTaskMutation.isPending ? "创建中..." : "创建"}
+                                    {createTaskMutation.isPending ? "创建中..." : dict.common.create}
                                 </Button>
                             </div>
                         </div>
@@ -428,7 +430,7 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
                                                 size="sm"
                                                 onClick={() => retryTaskMutation.mutate(task.id)}
                                                 disabled={retryTaskMutation.isPending}
-                                                title="重试"
+                                                title={dict.common.retry}
                                             >
                                                 <RotateCcw className="h-4 w-4" />
                                             </Button>
@@ -439,7 +441,7 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
                                                 size="sm"
                                                 onClick={() => cancelTaskMutation.mutate(task.id)}
                                                 disabled={cancelTaskMutation.isPending}
-                                                title="取消"
+                                                title={dict.common.cancel}
                                             >
                                                 <Pause className="h-4 w-4" />
                                             </Button>
@@ -465,7 +467,7 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
                                         </div>
                                         <div>
                                             <span className="text-muted-foreground">创建时间:</span>
-                                            <div className="font-medium">{task.createdAt ? new Date(task.createdAt).toLocaleString() : "未知"}</div>
+                                            <div className="font-medium">{task.createdAt ? new Date(task.createdAt).toLocaleString() : dict.tasks.unknown}</div>
                                         </div>
                                     </div>
 
@@ -498,33 +500,34 @@ export function TaskManager({ appId, onViewTask }: TaskManagerProps) {
                                 </div>
                             </CardContent>
                         </Card>
-                    ))}
-                </div>
+    ))
+}
+                </div >
             ) : (
-                <div className="text-center py-12">
-                    <Play className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">暂无任务</h3>
-                    <p className="text-muted-foreground mb-4">
-                        创建您的第一个去雾任务来开始图像处理
-                    </p>
-                    <Button onClick={() => setShowCreateDialog(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        创建任务
-                    </Button>
-                </div>
-            )}
+    <div className="text-center py-12">
+        <Play className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium mb-2">暂无任务</h3>
+        <p className="text-muted-foreground mb-4">
+            创建您的第一个去雾任务来开始图像处理
+        </p>
+        <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            创建任务
+        </Button>
+    </div>
+)}
 
-            {/* 去雾详情对话框 */}
-            <DehazeDetailDialog
-                taskId={selectedTaskId}
-                open={showDehazeDetail}
-                onOpenChange={(open) => {
-                    setShowDehazeDetail(open);
-                    if (!open) {
-                        setSelectedTaskId(null);
-                    }
-                }}
-            />
-        </div>
+{/* 去雾详情对话框 */ }
+<DehazeDetailDialog
+    taskId={selectedTaskId}
+    open={showDehazeDetail}
+    onOpenChange={(open) => {
+        setShowDehazeDetail(open);
+        if (!open) {
+            setSelectedTaskId(null);
+        }
+    }}
+/>
+        </div >
     );
 }

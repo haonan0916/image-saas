@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import Uppy from "@uppy/core";
+import { useLocale } from "@/hooks/useLocale";
 
 interface DatasetDetailProps {
   datasetId: string;
@@ -28,6 +29,7 @@ interface DatasetDetailProps {
 }
 
 export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
+  const { dict } = useLocale();
   const [showImagePreview, setShowImagePreview] = useState<string | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
@@ -216,7 +218,7 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
           </Button>
           <div>
             <h2 className="text-2xl font-semibold">{dataset.name}</h2>
-            <p className="text-muted-foreground">{dataset.description || "暂无描述"}</p>
+            <p className="text-muted-foreground">{dataset.description || dict.common.noDescription}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -256,13 +258,13 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
             <div>
               <p className="text-sm text-muted-foreground">创建时间</p>
               <p className="font-medium">
-                {dataset.createdAt ? new Date(dataset.createdAt).toLocaleDateString() : "未知"}
+                {dataset.createdAt ? new Date(dataset.createdAt).toLocaleDateString() : dict.tasks.unknown}
               </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">最后更新</p>
               <p className="font-medium">
-                {dataset.updatedAt ? new Date(dataset.updatedAt).toLocaleDateString() : "未知"}
+                {dataset.updatedAt ? new Date(dataset.updatedAt).toLocaleDateString() : dict.tasks.unknown}
               </p>
             </div>
           </div>

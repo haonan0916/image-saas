@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/hooks/useLocale";
 
 interface ImageCompareProps {
   beforeImage: string;
@@ -16,15 +17,20 @@ interface ImageCompareProps {
 export function ImageCompare({
   beforeImage,
   afterImage,
-  beforeLabel = "去雾前",
-  afterLabel = "去雾后",
+  beforeLabel,
+  afterLabel,
   className,
   aspectRatio = "16/9",
   onError,
 }: ImageCompareProps) {
+  const { dict } = useLocale();
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // 使用国际化的默认标签
+  const finalBeforeLabel = beforeLabel || dict.image.beforeDehaze;
+  const finalAfterLabel = afterLabel || dict.image.afterDehaze;
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -98,13 +104,13 @@ export function ImageCompare({
       <div className="absolute inset-0">
         <img
           src={afterImage}
-          alt={afterLabel}
+          alt={finalAfterLabel}
           className="w-full h-full object-contain"
           draggable={false}
         />
         {/* 去雾后标签 */}
         <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded-md text-sm font-medium">
-          {afterLabel}
+          {finalAfterLabel}
         </div>
       </div>
 
@@ -117,13 +123,13 @@ export function ImageCompare({
       >
         <img
           src={beforeImage}
-          alt={beforeLabel}
+          alt={finalBeforeLabel}
           className="w-full h-full object-contain"
           draggable={false}
         />
         {/* 去雾前标签 */}
         <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded-md text-sm font-medium">
-          {beforeLabel}
+          {finalBeforeLabel}
         </div>
       </div>
 
@@ -177,7 +183,7 @@ export function ImageCompare({
       {/* 使用说明 */}
       {(
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-3 py-1 rounded-md text-xs">
-          拖拽中间的滑块来对比图像
+          {dict.image.dragSlider}
         </div>
       )}
     </div>

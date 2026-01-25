@@ -4,6 +4,7 @@ import { Trash2, Copy } from "lucide-react";
 import copy from "copy-to-clipboard";
 import { toast } from "sonner";
 import { MouseEvent } from "react";
+import { useLocale } from "@/hooks/useLocale";
 
 export function DeleteFile({
   fileId,
@@ -12,6 +13,7 @@ export function DeleteFile({
   fileId: string;
   onDeleteSuccess: (fileId: string) => void;
 }) {
+  const { dict } = useLocale();
   const { mutate: deleteFile, isPending } =
     trpcClientReact.file.deleteFile.useMutation({
       onSuccess: () => {
@@ -21,7 +23,7 @@ export function DeleteFile({
 
   const handleRemoveFile = () => {
     deleteFile(fileId);
-    toast("File Delete Succeed!");
+    toast(dict.files.deleteSuccess);
   };
   return (
     <Button variant="ghost" onClick={handleRemoveFile} disabled={isPending}>

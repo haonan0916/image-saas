@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Plus, Database, Image, Trash2, Edit, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale } from "@/hooks/useLocale";
 
 interface DatasetManagerProps {
     appId: string;
@@ -19,6 +20,7 @@ interface DatasetManagerProps {
 }
 
 export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
+  const { dict } = useLocale();
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [editingDataset, setEditingDataset] = useState<string | null>(null);
     const [showEditDialog, setShowEditDialog] = useState(false);
@@ -46,7 +48,7 @@ export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
     // 创建数据集
     const createDatasetMutation = trpcClientReact.datasets.createDataset.useMutation({
         onSuccess: () => {
-            toast.success("数据集创建成功");
+            toast.success(dict.datasets.createSuccess);
             setShowCreateDialog(false);
             setNewDataset({ name: "", description: "", tags: [], tagInput: "" });
             utils.datasets.listDatasets.invalidate({ appId });
@@ -59,7 +61,7 @@ export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
     // 更新数据集
     const updateDatasetMutation = trpcClientReact.datasets.updateDataset.useMutation({
         onSuccess: () => {
-            toast.success("数据集更新成功");
+            toast.success(dict.datasets.updateSuccess);
             setShowEditDialog(false);
             setEditingDataset(null);
             setEditDataset({ name: "", description: "", tags: [], tagInput: "" });
@@ -73,7 +75,7 @@ export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
     // 删除数据集
     const deleteDatasetMutation = trpcClientReact.datasets.deleteDataset.useMutation({
         onSuccess: () => {
-            toast.success("数据集删除成功");
+            toast.success(dict.datasets.deleteSuccess);
             utils.datasets.listDatasets.invalidate({ appId });
         },
         onError: (error) => {
@@ -83,7 +85,7 @@ export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
 
     const handleCreateDataset = () => {
         if (!newDataset.name.trim()) {
-            toast.error("请输入数据集名称");
+            toast.error(dict.datasets.enterName);
             return;
         }
 
@@ -115,7 +117,7 @@ export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
 
     const handleEditDataset = () => {
         if (!editDataset.name.trim()) {
-            toast.error("请输入数据集名称");
+            toast.error(dict.datasets.enterName);
             return;
         }
 
@@ -239,7 +241,7 @@ export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
                                     取消
                                 </Button>
                                 <Button onClick={handleCreateDataset} disabled={createDatasetMutation.isPending}>
-                                    {createDatasetMutation.isPending ? "创建中..." : "创建"}
+                                    {createDatasetMutation.isPending ? "创建中..." : dict.common.create}
                                 </Button>
                             </div>
                         </div>
@@ -304,7 +306,7 @@ export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
                                     取消
                                 </Button>
                                 <Button onClick={handleEditDataset} disabled={updateDatasetMutation.isPending}>
-                                    {updateDatasetMutation.isPending ? "更新中..." : "更新"}
+                                    {updateDatasetMutation.isPending ? "更新中..." : dict.common.update}
                                 </Button>
                             </div>
                         </div>
@@ -322,7 +324,7 @@ export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
                                     <div className="flex-1">
                                         <CardTitle className="text-lg">{dataset.name}</CardTitle>
                                         <CardDescription className="mt-1">
-                                            {dataset.description || "暂无描述"}
+                                            {dataset.description || dict.common.noDescription}
                                         </CardDescription>
                                     </div>
                                     <div className="flex gap-1">
@@ -444,7 +446,7 @@ export function DatasetManager({ appId, onViewDataset }: DatasetManagerProps) {
                                     )}
 
                                     <div className="text-xs text-muted-foreground">
-                                        创建于 {dataset.createdAt ? new Date(dataset.createdAt).toLocaleDateString() : "未知"}
+                                        创建于 {dataset.createdAt ? new Date(dataset.createdAt).toLocaleDateString() : dict.tasks.unknown}
                                     </div>
                                 </div>
                             </CardContent>

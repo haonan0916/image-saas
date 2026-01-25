@@ -1,6 +1,8 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { getDictionary } from "@/lib/dictionaries";
+import { Locale } from "@/dictionaries";
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (

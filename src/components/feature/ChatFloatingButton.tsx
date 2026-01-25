@@ -5,6 +5,7 @@ import { MessageCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatDialog } from "./ChatDialog";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/hooks/useLocale";
 
 interface ChatFloatingButtonProps {
     userId?: string;
@@ -12,6 +13,7 @@ interface ChatFloatingButtonProps {
 }
 
 export function ChatFloatingButton({ userId, className }: ChatFloatingButtonProps) {
+  const { dict } = useLocale();
     const [isOpen, setIsOpen] = useState(false);
 
     if (!userId) {

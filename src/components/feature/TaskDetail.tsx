@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { DehazeDetailDialog } from "./DehazeDetailDialog";
 import { BatchTaskProgress } from "./BatchTaskProgress";
+import { useLocale } from "@/hooks/useLocale";
 import {
     ArrowLeft,
     Clock,
@@ -26,6 +27,7 @@ interface TaskDetailProps {
 }
 
 export function TaskDetail({ taskId, onBack }: TaskDetailProps) {
+  const { dict } = useLocale();
     const [showDehazeDetail, setShowDehazeDetail] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -76,16 +78,16 @@ export function TaskDetail({ taskId, onBack }: TaskDetailProps) {
 
     const getStatusLabel = (status: string) => {
         const statusMap = {
-            pending: "等待中",
-            processing: "处理中",
-            completed: "已完成",
-            failed: "失败",
+            pending: dict.tasks.status.pending,
+            processing: dict.tasks.status.processing,
+            completed: dict.tasks.status.completed,
+            failed: dict.tasks.status.failed,
         };
         return statusMap[status as keyof typeof statusMap] || status;
     };
 
     const formatProcessingTime = (seconds: number | null) => {
-        if (!seconds) return "未知";
+        if (!seconds) return dict.tasks.unknown;
         if (seconds < 60) return `${seconds}秒`;
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
@@ -169,7 +171,7 @@ export function TaskDetail({ taskId, onBack }: TaskDetailProps) {
                         <div>
                             <p className="text-sm text-muted-foreground">创建时间</p>
                             <p className="text-sm font-medium">
-                                {task.createdAt ? new Date(task.createdAt).toLocaleString() : "未知"}
+                                {task.createdAt ? new Date(task.createdAt).toLocaleString() : dict.tasks.unknown}
                             </p>
                         </div>
                     </div>

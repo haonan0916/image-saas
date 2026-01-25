@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale } from "@/hooks/useLocale";
 
 interface BatchTaskProgressProps {
   userId: string;
@@ -26,13 +27,12 @@ interface BatchTaskProgressProps {
   onTaskFailed?: (taskId: string, error: string) => void;
 }
 
-export function BatchTaskProgress({
-  userId,
+export function BatchTaskProgress({ userId,
   appId,
   taskId,
   onTaskCompleted,
-  onTaskFailed,
-}: BatchTaskProgressProps) {
+  onTaskFailed, }: BatchTaskProgressProps) {
+  const { dict } = useLocale();
   const [currentBatch, setCurrentBatch] = useState<BatchProgress | null>(null);
   const [processingStats, setProcessingStats] = useState({
     avgProcessingTime: 0,
@@ -125,10 +125,10 @@ export function BatchTaskProgress({
 
   const getStatusLabel = (status: string) => {
     const statusMap = {
-      pending: "等待中",
-      processing: "处理中",
-      completed: "已完成",
-      failed: "失败",
+      pending: dict.tasks.status.pending,
+      processing: dict.tasks.status.processing,
+      completed: dict.tasks.status.completed,
+      failed: dict.tasks.status.failed,
     };
     return statusMap[status as keyof typeof statusMap] || status;
   };
@@ -170,7 +170,7 @@ export function BatchTaskProgress({
           <div className="flex items-center gap-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
             <span className="text-muted-foreground">
-              {isReconnecting ? "重新连接中..." : "连接中..."}
+              {isReconnecting ? "重新连接中..." : dict.chat.connecting}
             </span>
           </div>
         </CardContent>

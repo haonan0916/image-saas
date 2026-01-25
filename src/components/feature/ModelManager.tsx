@@ -13,12 +13,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Brain, Star, Trash2, Edit, Download, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale } from "@/hooks/useLocale";
 
 interface ModelManagerProps {
   appId: string;
 }
 
 export function ModelManager({ appId }: ModelManagerProps) {
+  const { dict } = useLocale();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingModel, setEditingModel] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export function ModelManager({ appId }: ModelManagerProps) {
   // 创建模型
   const createModelMutation = trpcClientReact.models.createModel.useMutation({
     onSuccess: () => {
-      toast.success("模型创建成功");
+      toast.success(dict.models.createSuccess);
       setShowCreateDialog(false);
       setNewModel({
         name: "",
@@ -81,7 +83,7 @@ export function ModelManager({ appId }: ModelManagerProps) {
   // 更新模型
   const updateModelMutation = trpcClientReact.models.updateModel.useMutation({
     onSuccess: () => {
-      toast.success("模型更新成功");
+      toast.success(dict.models.updateSuccess);
       setShowEditDialog(false);
       setEditingModel(null);
       setEditModel({
@@ -115,7 +117,7 @@ export function ModelManager({ appId }: ModelManagerProps) {
   // 删除模型
   const deleteModelMutation = trpcClientReact.models.deleteModel.useMutation({
     onSuccess: () => {
-      toast.success("模型删除成功");
+      toast.success(dict.models.deleteSuccess);
       utils.models.listModels.invalidate({ appId });
     },
     onError: (error) => {
@@ -312,7 +314,7 @@ export function ModelManager({ appId }: ModelManagerProps) {
                   取消
                 </Button>
                 <Button onClick={handleCreateModel} disabled={createModelMutation.isPending}>
-                  {createModelMutation.isPending ? "添加中..." : "添加"}
+                  {createModelMutation.isPending ? "添加中..." : dict.common.add}
                 </Button>
               </div>
             </div>
@@ -404,7 +406,7 @@ export function ModelManager({ appId }: ModelManagerProps) {
                   取消
                 </Button>
                 <Button onClick={handleEditModel} disabled={updateModelMutation.isPending}>
-                  {updateModelMutation.isPending ? "更新中..." : "更新"}
+                  {updateModelMutation.isPending ? "更新中..." : dict.common.update}
                 </Button>
               </div>
             </div>
@@ -430,7 +432,7 @@ export function ModelManager({ appId }: ModelManagerProps) {
                       )}
                     </div>
                     <CardDescription className="mt-1">
-                      {model.description || "暂无描述"}
+                      {model.description || dict.common.noDescription}
                     </CardDescription>
                   </div>
                   <div className="flex gap-1">
@@ -530,7 +532,7 @@ export function ModelManager({ appId }: ModelManagerProps) {
                   )}
 
                   <div className="text-xs text-muted-foreground">
-                    创建于 {model.createdAt ? new Date(model.createdAt).toLocaleDateString() : "未知"}
+                    创建于 {model.createdAt ? new Date(model.createdAt).toLocaleDateString() : dict.tasks.unknown}
                   </div>
                 </div>
               </CardContent>

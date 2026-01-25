@@ -1,5 +1,5 @@
 "use client";
-import { useUppyState } from "@/app/dashboard/useUppyState";
+import { useUppyState } from "@/hooks/useUppyState";
 import Uppy from "@uppy/core";
 import { useMemo, useState } from "react";
 import {
@@ -11,8 +11,10 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { LocalFileItem } from "./FileItem";
+import { useLocale } from "@/hooks/useLocale";
 
 export function UploadPreview({ uppy }: { uppy: Uppy }) {
+  const { dict } = useLocale();
   const files = useUppyState(uppy, (s) => Object.values(s.files));
   const open = useMemo(() => files.length > 0, [files]);
 

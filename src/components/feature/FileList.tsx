@@ -2,7 +2,7 @@ import { trpcClientReact, trpcPureClient } from "@/utils/api";
 import Uppy, { Meta, UppyFile, Body } from "@uppy/core";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
-import { useUppyState } from "@/app/dashboard/useUppyState";
+import { useUppyState } from "@/hooks/useUppyState";
 import { LocalFileItem, RemoteFileItem } from "./FileItem";
 import { inferRouterOutputs } from "@trpc/server";
 import { AppRouter } from "@/server/router";
@@ -46,8 +46,8 @@ export function FileList({
 
   const fileList = infinityQueryData
     ? infinityQueryData.pages.reduce((result, page) => {
-        return [...result, ...page.items];
-      }, [] as FileResult)
+      return [...result, ...page.items];
+    }, [] as FileResult)
     : [];
   const [uploadingFileIDs, setUploadingFileIDs] = useState<string[]>([]);
   const uppyFile = useUppyState(uppy, (s) => s.files);
