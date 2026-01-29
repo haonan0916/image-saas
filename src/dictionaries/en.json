@@ -205,5 +205,161 @@
   },
   "auth": {
     "login": "Login"
+  },
+  "home": {
+    "hero": {
+      "title": "AI-Powered Image Dehazing",
+      "subtitle": "Professional cloud-based image processing platform",
+      "description": "Transform hazy images into crystal-clear visuals with our advanced AI algorithms. Support for multiple cloud storage providers and seamless API integration.",
+      "getStarted": "Get Started",
+      "learnMore": "Learn More",
+      "watchDemo": "Watch Demo"
+    },
+    "features": {
+      "title": "Powerful Features",
+      "subtitle": "Everything you need for professional image processing",
+      "multiCloud": {
+        "title": "Multi-Cloud Storage",
+        "description": "Native integration with Alibaba Cloud, Tencent Cloud, AWS S3 and more"
+      },
+      "aiProcessing": {
+        "title": "AI Processing",
+        "description": "High-fidelity image dehazing with state-of-the-art algorithms"
+      },
+      "apiFirst": {
+        "title": "API-First Design",
+        "description": "RESTful APIs with comprehensive SDKs for seamless integration"
+      },
+      "dataOwnership": {
+        "title": "Data Ownership",
+        "description": "Your files stay in your own cloud storage, ensuring complete data control"
+      },
+      "realtime": {
+        "title": "Real-time Processing",
+        "description": "Fast processing with real-time progress tracking and notifications"
+      },
+      "scalable": {
+        "title": "Enterprise Scale",
+        "description": "Built to handle enterprise workloads with tiered subscription plans"
+      }
+    },
+    "demo": {
+      "title": "See the Difference",
+      "subtitle": "Experience the power of our AI dehazing technology",
+      "beforeAfter": "Drag to compare before and after results"
+    },
+    "integration": {
+      "title": "Easy Integration",
+      "subtitle": "Get started with just a few lines of code",
+      "steps": {
+        "install": "Install SDK",
+        "configure": "Configure API",
+        "upload": "Upload & Process"
+      }
+    },
+    "pricing": {
+      "title": "Simple Pricing",
+      "subtitle": "Choose the plan that fits your needs",
+      "free": {
+        "title": "Free",
+        "price": "$0",
+        "period": "/month",
+        "features": [
+          "1 Application",
+          "100 Images/month",
+          "Basic Support",
+          "API Access"
+        ]
+      },
+      "pro": {
+        "title": "Professional",
+        "price": "$29",
+        "period": "/month",
+        "features": [
+          "Unlimited Applications",
+          "10,000 Images/month",
+          "Priority Support",
+          "Advanced Analytics",
+          "Custom Models"
+        ]
+      }
+    },
+    "cta": {
+      "title": "Ready to get started?",
+      "subtitle": "Join thousands of developers using our platform",
+      "button": "Start Free Trial"
+    }
+  },
+  "docs": {
+    "title": "Documentation",
+    "subtitle": "Everything you need to integrate our image dehazing API",
+    "quickStart": {
+      "title": "Quick Start",
+      "subtitle": "Get up and running in minutes",
+      "step1": {
+        "title": "Install SDK",
+        "description": "Install our SDK using your preferred package manager"
+      },
+      "step2": {
+        "title": "Configure API",
+        "description": "Set up authentication with your API key or signed token"
+      },
+      "step3": {
+        "title": "Upload & Process",
+        "description": "Upload images and create dehazing tasks"
+      }
+    },
+    "installation": {
+      "title": "Installation",
+      "subtitle": "Install the SDK packages you need",
+      "npm": "npm install @image-saas/api @image-saas/uploader",
+      "yarn": "yarn add @image-saas/api @image-saas/uploader",
+      "pnpm": "pnpm add @image-saas/api @image-saas/uploader"
+    },
+    "authentication": {
+      "title": "Authentication",
+      "subtitle": "Two ways to authenticate with our API",
+      "apiKey": {
+        "title": "API Key Authentication",
+        "description": "Use your API key for client-side applications"
+      },
+      "signedToken": {
+        "title": "Signed Token Authentication",
+        "description": "Use signed tokens for server-side applications"
+      }
+    },
+    "usage": {
+      "title": "Usage Examples",
+      "subtitle": "Common integration patterns and examples",
+      "basicUpload": {
+        "title": "Basic File Upload",
+        "description": "Upload files to your cloud storage"
+      },
+      "dehazeTask": {
+        "title": "Create Dehazing Task",
+        "description": "Process images with AI dehazing"
+      },
+      "reactIntegration": {
+        "title": "React Integration",
+        "description": "Use our components in React applications"
+      },
+      "vueIntegration": {
+        "title": "Vue Integration",
+        "description": "Use our components in Vue applications"
+      }
+    },
+    "api": {
+      "title": "API Reference",
+      "subtitle": "Complete API documentation",
+      "endpoints": {
+        "upload": "File Upload",
+        "task": "Task Management",
+        "status": "Status Check"
+      }
+    },
+    "examples": {
+      "title": "Examples",
+      "subtitle": "Real-world integration examples"
+    }
   }
 }

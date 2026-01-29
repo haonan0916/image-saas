@@ -8,7 +8,7 @@ import { useLocale } from "@/hooks/useLocale";
 
 export function ThemeToggle() {
   const { dict } = useLocale();
-const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   const isDark = theme === "dark";
 

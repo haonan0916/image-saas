@@ -212,4 +212,149 @@ export interface Dictionary {
   auth: {
     login: string;
   };
+  home: {
+    hero: {
+      title: string;
+      subtitle: string;
+      description: string;
+      getStarted: string;
+      learnMore: string;
+      watchDemo: string;
+    };
+    features: {
+      title: string;
+      subtitle: string;
+      multiCloud: {
+        title: string;
+        description: string;
+      };
+      aiProcessing: {
+        title: string;
+        description: string;
+      };
+      apiFirst: {
+        title: string;
+        description: string;
+      };
+      dataOwnership: {
+        title: string;
+        description: string;
+      };
+      realtime: {
+        title: string;
+        description: string;
+      };
+      scalable: {
+        title: string;
+        description: string;
+      };
+    };
+    demo: {
+      title: string;
+      subtitle: string;
+      beforeAfter: string;
+    };
+    integration: {
+      title: string;
+      subtitle: string;
+      steps: {
+        install: string;
+        configure: string;
+        upload: string;
+      };
+    };
+    pricing: {
+      title: string;
+      subtitle: string;
+      free: {
+        title: string;
+        price: string;
+        period: string;
+        features: string[];
+      };
+      pro: {
+        title: string;
+        price: string;
+        period: string;
+        features: string[];
+      };
+    };
+    cta: {
+      title: string;
+      subtitle: string;
+      button: string;
+    };
+  };
+  docs: {
+    title: string;
+    subtitle: string;
+    quickStart: {
+      title: string;
+      subtitle: string;
+      step1: {
+        title: string;
+        description: string;
+      };
+      step2: {
+        title: string;
+        description: string;
+      };
+      step3: {
+        title: string;
+        description: string;
+      };
+    };
+    installation: {
+      title: string;
+      subtitle: string;
+      npm: string;
+      yarn: string;
+      pnpm: string;
+    };
+    authentication: {
+      title: string;
+      subtitle: string;
+      apiKey: {
+        title: string;
+        description: string;
+      };
+      signedToken: {
+        title: string;
+        description: string;
+      };
+    };
+    usage: {
+      title: string;
+      subtitle: string;
+      basicUpload: {
+        title: string;
+        description: string;
+      };
+      dehazeTask: {
+        title: string;
+        description: string;
+      };
+      reactIntegration: {
+        title: string;
+        description: string;
+      };
+      vueIntegration: {
+        title: string;
+        description: string;
+      };
+    };
+    api: {
+      title: string;
+      subtitle: string;
+      endpoints: {
+        upload: string;
+        task: string;
+        status: string;
+      };
+    };
+    examples: {
+      title: string;
+      subtitle: string;
+    };
+  };
 }

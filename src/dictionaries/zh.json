@@ -43,7 +43,7 @@
     "logout": "退出登录"
   },
   "dashboard": {
-    "title": "图像 SaaS",
+    "title": "视界清云 SaaS",
     "description": "图像处理 SaaS 应用程序",
     "welcome": "欢迎使用图像处理平台",
     "createApp": "创建应用",
@@ -205,5 +205,161 @@
   },
   "auth": {
     "login": "登录"
+  },
+  "home": {
+    "hero": {
+      "title": "AI 智能图像去雾",
+      "subtitle": "专业的云端图像处理平台",
+      "description": "使用先进的 AI 算法将模糊图像转换为清晰视觉效果。支持多种云存储提供商和无缝 API 集成。",
+      "getStarted": "立即开始",
+      "learnMore": "了解更多",
+      "watchDemo": "观看演示"
+    },
+    "features": {
+      "title": "强大功能",
+      "subtitle": "专业图像处理所需的一切",
+      "multiCloud": {
+        "title": "多云存储",
+        "description": "原生集成阿里云、腾讯云、AWS S3 等多种存储服务"
+      },
+      "aiProcessing": {
+        "title": "AI 处理",
+        "description": "采用最先进算法的高保真图像去雾技术"
+      },
+      "apiFirst": {
+        "title": "API 优先设计",
+        "description": "提供 RESTful API 和完整 SDK，实现无缝集成"
+      },
+      "dataOwnership": {
+        "title": "数据归属权",
+        "description": "文件存储在您自己的云存储中，确保完全的数据控制权"
+      },
+      "realtime": {
+        "title": "实时处理",
+        "description": "快速处理，支持实时进度跟踪和通知"
+      },
+      "scalable": {
+        "title": "企业级扩展",
+        "description": "专为企业工作负载构建，提供分级订阅计划"
+      }
+    },
+    "demo": {
+      "title": "看见差异",
+      "subtitle": "体验我们 AI 去雾技术的强大力量",
+      "beforeAfter": "拖拽滑块对比处理前后效果"
+    },
+    "integration": {
+      "title": "轻松集成",
+      "subtitle": "仅需几行代码即可开始使用",
+      "steps": {
+        "install": "安装 SDK",
+        "configure": "配置 API",
+        "upload": "上传处理"
+      }
+    },
+    "pricing": {
+      "title": "简单定价",
+      "subtitle": "选择适合您需求的计划",
+      "free": {
+        "title": "免费版",
+        "price": "¥0",
+        "period": "/月",
+        "features": [
+          "1 个应用",
+          "100 张图片/月",
+          "基础支持",
+          "API 访问"
+        ]
+      },
+      "pro": {
+        "title": "专业版",
+        "price": "¥199",
+        "period": "/月",
+        "features": [
+          "无限应用",
+          "10,000 张图片/月",
+          "优先支持",
+          "高级分析",
+          "自定义模型"
+        ]
+      }
+    },
+    "cta": {
+      "title": "准备开始了吗？",
+      "subtitle": "加入数千名使用我们平台的开发者",
+      "button": "开始免费试用"
+    }
+  },
+  "docs": {
+    "title": "接入文档",
+    "subtitle": "集成我们的图像去雾 API 所需的一切",
+    "quickStart": {
+      "title": "快速开始",
+      "subtitle": "几分钟内快速上手",
+      "step1": {
+        "title": "安装 SDK",
+        "description": "使用您喜欢的包管理器安装我们的 SDK"
+      },
+      "step2": {
+        "title": "配置 API",
+        "description": "使用您的 API 密钥或签名令牌设置身份验证"
+      },
+      "step3": {
+        "title": "上传处理",
+        "description": "上传图像并创建去雾任务"
+      }
+    },
+    "installation": {
+      "title": "安装",
+      "subtitle": "安装您需要的 SDK 包",
+      "npm": "npm install @image-saas/api @image-saas/uploader",
+      "yarn": "yarn add @image-saas/api @image-saas/uploader",
+      "pnpm": "pnpm add @image-saas/api @image-saas/uploader"
+    },
+    "authentication": {
+      "title": "身份验证",
+      "subtitle": "两种方式验证我们的 API",
+      "apiKey": {
+        "title": "API 密钥验证",
+        "description": "在客户端应用程序中使用您的 API 密钥"
+      },
+      "signedToken": {
+        "title": "签名令牌验证",
+        "description": "在服务器端应用程序中使用签名令牌"
+      }
+    },
+    "usage": {
+      "title": "使用示例",
+      "subtitle": "常见集成模式和示例",
+      "basicUpload": {
+        "title": "基础文件上传",
+        "description": "将文件上传到您的云存储"
+      },
+      "dehazeTask": {
+        "title": "创建去雾任务",
+        "description": "使用 AI 去雾处理图像"
+      },
+      "reactIntegration": {
+        "title": "React 集成",
+        "description": "在 React 应用程序中使用我们的组件"
+      },
+      "vueIntegration": {
+        "title": "Vue 集成",
+        "description": "在 Vue 应用程序中使用我们的组件"
+      }
+    },
+    "api": {
+      "title": "API 参考",
+      "subtitle": "完整的 API 文档",
+      "endpoints": {
+        "upload": "文件上传",
+        "task": "任务管理",
+        "status": "状态检查"
+      }
+    },
+    "examples": {
+      "title": "示例",
+      "subtitle": "真实世界的集成示例"
+    }
   }
 }

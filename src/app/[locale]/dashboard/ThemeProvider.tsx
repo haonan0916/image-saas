@@ -7,5 +7,5 @@ type Props = Parameters<typeof NextThemeProvider>[0];
 
 export function ThemeProvider(props: Props) {
   const { dict } = useLocale();
-return <NextThemeProvider {...props}></NextThemeProvider>;
+  return <NextThemeProvider {...props}></NextThemeProvider>;
 }
