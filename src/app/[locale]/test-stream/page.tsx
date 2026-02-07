@@ -1,4 +1,3 @@
-import { Locale } from "@/dictionaries";
 "use client";
 
 import { useState } from "react";
@@ -9,7 +8,7 @@ import { useLocale } from "@/hooks/useLocale";
 
 export default function TestStreamPage() {
   const { dict } = useLocale();
-const [message, setMessage] = useState("");
+  const [message, setMessage] = useState("");
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -20,13 +19,13 @@ const [message, setMessage] = useState("");
     setResponse("");
 
     try {
-      const res = await fetch('/api/chat/stream', {
-        method: 'POST',
+      const res = await fetch("/api/chat/stream", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sessionId: 'test-session',
+          sessionId: "test-session",
           content: message,
         }),
       });
@@ -37,11 +36,11 @@ const [message, setMessage] = useState("");
 
       const reader = res.body?.getReader();
       if (!reader) {
-        throw new Error('No response body reader available');
+        throw new Error("No response body reader available");
       }
 
       const decoder = new TextDecoder();
-      let buffer = '';
+      let buffer = "";
 
       try {
         while (true) {
@@ -49,24 +48,24 @@ const [message, setMessage] = useState("");
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
+            if (line.startsWith("data: ")) {
               try {
                 const data = JSON.parse(line.slice(6));
-                console.log('Stream data:', data);
-                
-                if (data.type === 'streamChunk') {
+                console.log("Stream data:", data);
+
+                if (data.type === "streamChunk") {
                   setResponse(data.fullContent);
-                } else if (data.type === 'streamEnd') {
-                  console.log('Stream ended');
-                } else if (data.type === 'error') {
+                } else if (data.type === "streamEnd") {
+                  console.log("Stream ended");
+                } else if (data.type === "error") {
                   throw new Error(data.error);
                 }
               } catch (parseError) {
-                console.warn('Failed to parse stream data:', line);
+                console.warn("Failed to parse stream data:", line);
               }
             }
           }
@@ -75,8 +74,10 @@ const [message, setMessage] = useState("");
         reader.releaseLock();
       }
     } catch (error) {
-      console.error('Stream test error:', error);
-      setResponse(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Stream test error:", error);
+      setResponse(
+        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     } finally {
       setIsLoading(false);
     }
@@ -95,31 +96,40 @@ const [message, setMessage] = useState("");
               onChange={(e) => setMessage(e.target.value)}
               placeholder="输入测试消息..."
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   testStream();
                 }
               }}
             />
-            <Button onClick={testStream} disabled={isLoading || !message.trim()}>
+            <Button
+              onClick={testStream}
+              disabled={isLoading || !message.trim()}
+            >
               {isLoading ? dict.test.sending : dict.chat.send}
             </Button>
           </div>
-          
+
           {response && (
             <div className="mt-4 p-4 bg-gray-100 rounded-lg">
               <h3 className="font-semibold mb-2">AI 回复:</h3>
               <div className="whitespace-pre-wrap">{response}</div>
             </div>
           )}
-          
+
           {isLoading && !response && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <div className="flex items-center gap-2">
                 <div className="flex gap-1">
                   <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
-                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                  <div
+                    className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
+                  />
+                  <div
+                    className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  />
                 </div>
                 <span className="text-blue-600">等待 AI 回复...</span>
               </div>

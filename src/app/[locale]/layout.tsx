@@ -14,7 +14,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const dict = await getDictionary(locale);
-  
+
   return {
     title: dict.dashboard.title,
     description: dict.dashboard.description,
@@ -29,7 +29,7 @@ export default async function LocaleLayout({
   params: Promise<{ locale: Locale }>;
 }) {
   const { locale } = await params;
-  
+
   return (
     <>
       <HtmlLangProvider />

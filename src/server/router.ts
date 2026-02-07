@@ -8,7 +8,6 @@ import { datasetsRouters } from "./routes/datasets";
 import { modelsRouters } from "./routes/models";
 import { dehazeTasksRouters } from "./routes/dehaze-tasks";
 import { chatRoutes } from "./routes/chat";
-import { chatLangChainRoutes } from "./routes/chat-langchain";
 import { ragRoutes } from "./routes/rag";
 
 export const appRouter = router({
@@ -21,7 +20,6 @@ export const appRouter = router({
   models: modelsRouters,
   dehazeTasks: dehazeTasksRouters,
   chat: chatRoutes, // Original Ollama-only chat routes
-  chatLangChain: chatLangChainRoutes, // New LangChain multi-model chat routes
   rag: ragRoutes, // RAG knowledge base routes
 });
 

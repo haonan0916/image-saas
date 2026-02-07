@@ -12,6 +12,8 @@ import {
   unique,
   serial,
   json,
+  jsonb,
+  vector,
 } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
@@ -330,19 +332,19 @@ export const chatMessages = pgTable("chat_messages", {
 export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   session: one(chatSessions, { fields: [chatMessages.sessionId], references: [chatSessions.id] }),
 }));
-
 // RAG 知识库表
 export const knowledgeBase = pgTable("knowledge_base", {
-  id: uuid("id").notNull().primaryKey(),
-  title: varchar("title", { length: 255 }).notNull(),
+  id: uuid("id").notNull().primaryKey().$defaultFn(() => crypto.randomUUID()),
+  title: varchar("title", { length: 255 }),
   content: text("content").notNull(),
-  type: varchar("type", { length: 50 }).notNull().default("document"), // 'document' | 'api' | 'guide' | 'faq'
+  type: varchar("type", { length: 50 }).default("document"), // 'document' | 'api' | 'guide' | 'faq'
   category: varchar("category", { length: 100 }), // 'system' | 'api' | 'usage' | 'troubleshooting'
-  tags: json("tags").$type<string[]>().default([]),
+  tags: json("tags").$type<string[]>(),
   source: varchar("source", { length: 255 }), // 来源文件或URL
-  embedding: json("embedding").$type<number[]>(), // 向量嵌入
-  userId: text("user_id").notNull(),
-  isPublic: boolean("is_public").notNull().default(false), // 是否为公共知识
+  embedding: vector("embedding", { dimensions: 1024 }), // 向量嵌入
+  metadata: json("metadata").$type<Record<string, any>>(), // 额外的元数据，用于 LangChain
+  userId: text("user_id"),
+  isPublic: boolean("is_public").default(false), // 是否为公共知识
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
   deletedAt: timestamp("deleted_at", { mode: "date" }),
