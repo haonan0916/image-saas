@@ -21,13 +21,14 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { UrlMaker } from "./UrlMaker";
 import { UpgradeDialog } from "./Upgrade";
-import { useLocale } from "@/hooks/useLocale";
+import { useParams } from "next/navigation";
+import { Locale } from "@/dictionaries";
 
 export default function AppPage({ params, }: {
   params: Promise<{ id: string }>;
 }) {
-  const { dict } = useLocale();
-  const { id: appId } = use(params);
+  // 先调用所有 hooks
+  const param = useParams();
   const { data: apps, isPending } = trpcClientReact.app.listApps.useQuery(
     void 0,
     {
@@ -36,7 +37,16 @@ export default function AppPage({ params, }: {
       refetchOnReconnect: false,
     }
   );
-
+  const { data: plan } = trpcClientReact.user.getPlan.useQuery(void 0, {
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
+  
+  // 然后使用 use() 解析 Promise 和其他非 hook 操作
+  const { id: appId } = use(params);
+  const locale = param.locale as Locale;
   const currentApp = apps?.filter((app) => app.id === appId)[0];
 
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -87,13 +97,6 @@ export default function AppPage({ params, }: {
 
   const [makingUrlImageId, setMakingUrlImageId] = useState<string | null>(null);
 
-  const { data: plan } = trpcClientReact.user.getPlan.useQuery(void 0, {
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-  });
-
   let children: ReactNode;
 
   if (isPending) {
@@ -135,10 +138,10 @@ export default function AppPage({ params, }: {
                 }
               }}
             >
-              <Link href="/dashboard/apps/new">Create New</Link>
+              <Link href={`/${locale}/dashboard/apps/new`}>Create New</Link>
             </Button>
             <Button asChild>
-              <Link href={`/dashboard/apps/${appId}/setting/storage`}>
+              <Link href={`/${locale}/dashboard/apps/${appId}/setting/storage`}>
                 <Settings />
               </Link>
             </Button>

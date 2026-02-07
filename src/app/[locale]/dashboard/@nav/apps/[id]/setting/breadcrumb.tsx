@@ -9,9 +9,13 @@ import { trpcClientReact } from "@/utils/api";
 import Link from "next/link";
 import { Home } from "lucide-react";
 import { useLocale } from "@/hooks/useLocale";
+import { useParams } from "next/navigation";
+import { Locale } from "@/dictionaries";
 
 export function BreadCrumb({ id, leaf }: { id: string; leaf: string }) {
   const { dict } = useLocale();
+  const param = useParams();
+  const locale = param.locale as Locale;
   const { data: apps, isPending } = trpcClientReact.app.listApps.useQuery();
 
   const currentApp = apps?.find((app) => app.id === id);
@@ -20,7 +24,7 @@ export function BreadCrumb({ id, leaf }: { id: string; leaf: string }) {
       <ol className="inline-flex items-center space-x-1 md:space-x-2 rtl:space-x-reverse">
         <li className="inline-flex items-center">
           <Link
-            href={`/dashboard/apps/${id}`}
+            href={`/${locale}/dashboard/apps/${id}`}
             className="inline-flex items-center text-sm font-medium text-body hover:text-fg-brand"
           >
             <Home></Home>
@@ -34,7 +38,7 @@ export function BreadCrumb({ id, leaf }: { id: string; leaf: string }) {
             <DropdownMenuContent>
               {apps?.map((app) => (
                 <DropdownMenuItem key={app.id} disabled={app.id === id}>
-                  <Link href={`/dashboard/apps/${app.id}`}>{app.name}</Link>
+                  <Link href={`/${locale}/dashboard/apps/${app.id}`}>{app.name}</Link>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

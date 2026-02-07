@@ -12,17 +12,19 @@ import { useLocale } from "@/hooks/useLocale";
 export default function StoragePage({ params, }: {
   params: Promise<{ id: string }>;
 }) {
+  // 先调用所有 hooks
   const { dict } = useLocale();
   const router = useRouter();
-
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<S3StorageConfiguration & { name: string }>();
-
   const { mutate } = trpcClientReact.storage.createStorage.useMutation();
+
+  // 然后使用 use() 解析 Promise
   const { id } = use(params);
+
   const onSubmit: SubmitHandler<S3StorageConfiguration & { name: string }> = (
     data
   ) => {

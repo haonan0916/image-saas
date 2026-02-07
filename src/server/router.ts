@@ -9,6 +9,7 @@ import { modelsRouters } from "./routes/models";
 import { dehazeTasksRouters } from "./routes/dehaze-tasks";
 import { chatRoutes } from "./routes/chat";
 import { ragRoutes } from "./routes/rag";
+import { agentRoutes } from "./routes/agent";
 
 export const appRouter = router({
   file: fileRoutes,
@@ -21,6 +22,7 @@ export const appRouter = router({
   dehazeTasks: dehazeTasksRouters,
   chat: chatRoutes, // Original Ollama-only chat routes
   rag: ragRoutes, // RAG knowledge base routes
+  agent: agentRoutes, // Intelligent platform assistant agent
 });
 
 export type AppRouter = typeof appRouter;

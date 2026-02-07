@@ -43,8 +43,14 @@ function KeyString({ id }: { id: number }) {
 export default function ApiKeyPage({ params, }: {
   params: Promise<{ id: string }>;
 }) {
+  // 先调用所有 hooks
   const { dict } = useLocale();
+  const [name, setName] = useState("");
+  const [showKeyMap, setShowKeyMap] = useState<Record<number, boolean>>({});
+
+  // 然后使用 use() 解析 Promise
   const { id } = use(params);
+
   const { data: apiKeys } = trpcClientReact.apiKeys.listApiKeys.useQuery({
     appId: id,
   });
@@ -67,9 +73,6 @@ export default function ApiKeyPage({ params, }: {
         );
       },
     });
-  const [name, setName] = useState("");
-
-  const [showKeyMap, setShowKeyMap] = useState<Record<number, boolean>>({});
   return (
     <div className="h-full flex justify-center">
       <div className="container pt-10">

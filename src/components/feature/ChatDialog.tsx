@@ -35,6 +35,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/hooks/useLocale";
+import { AgentWelcome } from "./AgentWelcome";
 
 // 类型定义
 interface ChatSession {
@@ -92,6 +93,7 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [useRAG, setUseRAG] = useState(false); // RAG 开关
+  const [useAgent, setUseAgent] = useState(false); // Agent 开关
 
   // 使用本地状态管理临时消息和加载状态
   const [tempMessages, setTempMessages] = useState<Map<string, ChatMessage[]>>(new Map());
@@ -333,113 +335,219 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
     });
 
     try {
-      // 使用流式API
-      const response = await fetch('/api/chat/stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionId: targetSessionId,
-          content: userMessage,
-          model: connectionStatus?.model,
-          useRAG: useRAG, // 传递 RAG 开关状态
-        }),
-      });
+      // 如果使用 Agent 模式，调用 Agent API
+      if (useAgent) {
+        // 使用 Agent 流式 API
+        const response = await fetch('/api/chat/agent-stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: targetSessionId,
+            content: userMessage,
+            model: connectionStatus?.model,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body reader available');
-      }
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('No response body reader available');
+        }
 
-      const decoder = new TextDecoder();
-      let buffer = '';
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
 
-                if (data.type === 'userMessage') {
-                  continue;
-                } else if (data.type === 'streamStart') {
-                  continue;
-                } else if (data.type === 'thinking') {
-                  // 处理思考过程
-                  if (data.sessionId === targetSessionId) {
-                    setThinkingStates(prev => {
-                      const newMap = new Map(prev);
-                      newMap.set(targetSessionId, data.fullThinking || data.content);
-                      return newMap;
-                    });
-                  }
-                } else if (data.type === 'thinkingEnd') {
-                  // 思考结束，清除思考状态
-                  if (data.sessionId === targetSessionId) {
-                    setThinkingStates(prev => {
-                      const newMap = new Map(prev);
-                      newMap.delete(targetSessionId);
-                      return newMap;
-                    });
-                  }
-                } else if (data.type === 'streamChunk') {
-                  // 更新本地状态中的临时AI消息
-                  if (data.sessionId === targetSessionId) {
-                    setTempMessages(prev => {
-                      const newMap = new Map(prev);
-                      const sessionTempMessages = newMap.get(targetSessionId) || [];
-                      const updatedMessages = sessionTempMessages.map(msg => {
-                        if (msg.id === tempAIMessageId) {
-                          return { ...msg, content: data.fullContent };
-                        }
-                        return msg;
+                  if (data.type === 'userMessage') {
+                    continue;
+                  } else if (data.type === 'streamStart') {
+                    continue;
+                  } else if (data.type === 'toolCall') {
+                    // 显示工具调用信息
+                    if (data.sessionId === targetSessionId) {
+                      setThinkingStates(prev => {
+                        const newMap = new Map(prev);
+                        newMap.set(targetSessionId, `🔧 正在调用工具: ${data.toolName}\n参数: ${JSON.stringify(data.args, null, 2)}`);
+                        return newMap;
                       });
-                      newMap.set(targetSessionId, updatedMessages);
-                      return newMap;
-                    });
+                    }
+                  } else if (data.type === 'toolResult') {
+                    // 显示工具执行结果
+                    if (data.sessionId === targetSessionId) {
+                      setThinkingStates(prev => {
+                        const newMap = new Map(prev);
+                        const current = newMap.get(targetSessionId) || '';
+                        newMap.set(targetSessionId, `${current}\n\n✅ 工具执行完成`);
+                        return newMap;
+                      });
+                      // 2秒后清除工具调用信息
+                      setTimeout(() => {
+                        setThinkingStates(prev => {
+                          const newMap = new Map(prev);
+                          newMap.delete(targetSessionId);
+                          return newMap;
+                        });
+                      }, 2000);
+                    }
+                  } else if (data.type === 'streamChunk') {
+                    // 更新本地状态中的临时AI消息
+                    if (data.sessionId === targetSessionId) {
+                      setTempMessages(prev => {
+                        const newMap = new Map(prev);
+                        const sessionTempMessages = newMap.get(targetSessionId) || [];
+                        const updatedMessages = sessionTempMessages.map(msg => {
+                          if (msg.id === tempAIMessageId) {
+                            return { ...msg, content: data.fullContent };
+                          }
+                          return msg;
+                        });
+                        newMap.set(targetSessionId, updatedMessages);
+                        return newMap;
+                      });
+                    }
+                  } else if (data.type === 'streamEnd') {
+                    // 流式结束，清除临时消息并重新获取数据
+                    if (data.sessionId === targetSessionId) {
+                      setTempMessages(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(targetSessionId);
+                        return newMap;
+                      });
+                      setSessionLoading(targetSessionId, false);
+                      setTimeout(() => {
+                        queryClient.chat.getSession.invalidate({ sessionId: targetSessionId });
+                      }, 100);
+                    }
+                  } else if (data.type === 'error') {
+                    throw new Error(data.error);
                   }
-                } else if (data.type === 'streamEnd') {
-                  // 流式结束，清除临时消息并重新获取数据
-                  if (data.sessionId === targetSessionId) {
-                    // 先清除临时消息
-                    setTempMessages(prev => {
-                      const newMap = new Map(prev);
-                      newMap.delete(targetSessionId);
-                      return newMap;
-                    });
-
-                    // 清除加载状态
-                    setSessionLoading(targetSessionId, false);
-
-                    // 延迟一下再重新获取数据，确保后端已经保存完成
-                    setTimeout(() => {
-                      queryClient.chat.getSession.invalidate({ sessionId: targetSessionId });
-                    }, 100);
-                  }
-                } else if (data.type === 'error') {
-                  throw new Error(data.error);
+                } catch {
+                  console.warn('Failed to parse stream data:', line);
                 }
-              } catch {
-                console.warn('Failed to parse stream data:', line);
               }
             }
           }
+        } finally {
+          reader.releaseLock();
         }
-      } finally {
-        reader.releaseLock();
+      } else {
+        // 使用原有的流式API（普通模式或 RAG 模式）
+        const response = await fetch('/api/chat/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: targetSessionId,
+            content: userMessage,
+            model: connectionStatus?.model,
+            useRAG: useRAG,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('No response body reader available');
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+
+                  if (data.type === 'userMessage') {
+                    continue;
+                  } else if (data.type === 'streamStart') {
+                    continue;
+                  } else if (data.type === 'thinking') {
+                    if (data.sessionId === targetSessionId) {
+                      setThinkingStates(prev => {
+                        const newMap = new Map(prev);
+                        newMap.set(targetSessionId, data.fullThinking || data.content);
+                        return newMap;
+                      });
+                    }
+                  } else if (data.type === 'thinkingEnd') {
+                    if (data.sessionId === targetSessionId) {
+                      setThinkingStates(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(targetSessionId);
+                        return newMap;
+                      });
+                    }
+                  } else if (data.type === 'streamChunk') {
+                    if (data.sessionId === targetSessionId) {
+                      setTempMessages(prev => {
+                        const newMap = new Map(prev);
+                        const sessionTempMessages = newMap.get(targetSessionId) || [];
+                        const updatedMessages = sessionTempMessages.map(msg => {
+                          if (msg.id === tempAIMessageId) {
+                            return { ...msg, content: data.fullContent };
+                          }
+                          return msg;
+                        });
+                        newMap.set(targetSessionId, updatedMessages);
+                        return newMap;
+                      });
+                    }
+                  } else if (data.type === 'streamEnd') {
+                    if (data.sessionId === targetSessionId) {
+                      setTempMessages(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(targetSessionId);
+                        return newMap;
+                      });
+                      setSessionLoading(targetSessionId, false);
+                      setTimeout(() => {
+                        queryClient.chat.getSession.invalidate({ sessionId: targetSessionId });
+                      }, 100);
+                    }
+                  } else if (data.type === 'error') {
+                    throw new Error(data.error);
+                  }
+                } catch {
+                  console.warn('Failed to parse stream data:', line);
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
       }
 
       // 重新获取会话列表以更新时间戳
@@ -567,6 +675,16 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5" />
               AI 助手
+              {useAgent && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                  🤖 Agent 模式
+                </span>
+              )}
+              {useRAG && !useAgent && (
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                  📚 知识库模式
+                </span>
+              )}
             </DialogTitle>
             <div className="flex items-center gap-2">
               {getConnectionStatusIcon()}
@@ -782,21 +900,68 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
 
                 {/* 输入区域 */}
                 <div className="border-t p-4 shrink-0">
-                  {/* RAG 开关 */}
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b">
-                    <input
-                      type="checkbox"
-                      id="useRAG"
-                      checked={useRAG}
-                      onChange={(e) => setUseRAG(e.target.checked)}
-                      className="rounded"
-                    />
-                    <label htmlFor="useRAG" className="text-sm text-muted-foreground cursor-pointer">
-                      使用 RAG 增强 (基于系统知识库回答)
+                  {/* 模式选择 */}
+                  <div className="flex items-center gap-4 mb-3 pb-2 border-b">
+                    {/* 普通模式 */}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="chatMode"
+                        checked={!useRAG && !useAgent}
+                        onChange={() => {
+                          setUseRAG(false);
+                          setUseAgent(false);
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        💬 普通对话
+                      </span>
                     </label>
-                    {useRAG && (
-                      <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                        🧠 智能模式
+
+                    {/* RAG 模式 */}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="chatMode"
+                        checked={useRAG && !useAgent}
+                        onChange={() => {
+                          setUseRAG(true);
+                          setUseAgent(false);
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        🧠 知识库增强
+                      </span>
+                    </label>
+
+                    {/* Agent 模式 */}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="chatMode"
+                        checked={useAgent}
+                        onChange={() => {
+                          setUseRAG(false);
+                          setUseAgent(true);
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        🤖 智能助手 (Agent)
+                      </span>
+                    </label>
+
+                    {/* 模式说明 */}
+                    {useAgent && (
+                      <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded ml-auto">
+                        ✨ 可执行操作：文件管理、应用管理、知识查询
+                      </div>
+                    )}
+                    {useRAG && !useAgent && (
+                      <div className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded ml-auto">
+                        📚 基于系统知识库回答
                       </div>
                     )}
                   </div>
@@ -838,10 +1003,14 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">选择一个对话开始聊天</p>
-                </div>
+                {useAgent ? (
+                  <AgentWelcome />
+                ) : (
+                  <div className="text-center">
+                    <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">选择一个对话开始聊天</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
