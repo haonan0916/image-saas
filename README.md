@@ -1,84 +1,123 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 视界清云 SaaS
 
-## Getting Started
+![Next.js](https://img.shields.io/badge/Next.js-16-black) ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue) ![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.30-green) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC)
 
-First, run the development server:
+视界清云 SaaS 是一个现代化的图像处理服务平台，集成了文件管理、数据集组织、AI 模型处理（如智能去雾）以及基于 RAG 的智能助手功能。系统采用前后端分离架构（Next.js App Router），旨在为开发者和企业提供高效的图像数据流转与处理能力。
+
+## 核心功能
+
+- **高级文件管理**
+  - 支持拖拽上传、批量操作。
+  - 兼容 AWS S3、阿里云 OSS、腾讯云 COS 等对象存储服务。
+  - 安全的预签名 URL (Presigned URL) 上传与临时访问机制。
+
+- **数据集管理**
+  - 自定义数据集创建与逻辑分组。
+  - 支持多维度标签（Tags）分类与检索。
+  - 图片与数据集的灵活关联管理。
+
+- **AI 图像处理**
+  - 内置异步任务引擎，支持耗时 AI 任务处理。
+  - **去雾模型 (Dehaze)**：针对低对比度、雾天图像的增强处理。
+  - 完整的任务状态追踪（Pending -> Processing -> Completed）。
+
+- **RAG 智能助手**
+  - 基于 `pgvector` 的向量检索知识库。
+  - 支持 Markdown 和 JSON 格式的知识自动导入。
+  - 智能回答关于系统使用、API 调用等技术问题。
+
+- **开放 API**
+  - 提供 RESTful 接口供第三方集成。
+  - 基于 Client ID / Secret 的 API 密钥管理。
+
+## 技术栈
+
+- **前端**：Next.js 16 (App Router), Tailwind CSS, Radix UI, React Query, Framer Motion
+- **后端**：Node.js API Routes (Server Actions), NextAuth.js v5
+- **数据库**：PostgreSQL (with `pgvector` extension)
+- **ORM**：Drizzle ORM
+- **AI/LLM**：LangChain.js, Ollama (Local LLM Support)
+- **存储**：S3 Compatible Object Storage
+
+## 快速开始
+
+### 前置要求
+
+- Node.js >= 18
+- PostgreSQL >= 15 (需安装 `vector` 插件)
+- Ollama (用于本地 Embedding 和 RAG 功能)
+
+### 1. 克隆项目与安装依赖
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd image-saas
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. 环境配置
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+复制示例配置文件并填入你的真实配置：
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env
+```
 
-## Learn More
+主要配置项说明：
 
-To learn more about Next.js, take a look at the following resources:
+- `DATABASE_URL`: PostgreSQL 连接字符串。
+- `OSS_*`: 对象存储配置（用于文件上传）。
+- `OLLAMA_*`: AI 服务地址。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. 数据库初始化
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+确保 PostgreSQL 服务已启动，然后同步数据库表结构：
 
-## Deploy on Vercel
+```bash
+# 生成 SQL 迁移文件
+npx drizzle-kit generate
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# 推送变更到数据库
+npx drizzle-kit push
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# 打开可视化数据库网站
+npx drizzle-kit studio
+```
 
-## 🎯 项目概览
+### 4. 初始化知识库 (可选)
 
-该项目是一个**多租户文件/图片管理 SaaS 平台**，主要为开发者和企业提供文件上传、存储和 API 集成服务。
+如果你想使用 RAG 智能助手功能，需要初始化向量知识库：
 
-## 🏗️ 核心架构
+```bash
+# 扫描 src/knowledge 目录下的 .md/.json 文件并向量化存入数据库
+npx tsx scripts/init-knowledge-base.ts
+```
 
-**技术栈非常现代化**：
-- **前端**: Next.js 16 + React 19 + TypeScript + Tailwind CSS
-- **后端**: tRPC + Next.js API Routes + Drizzle ORM
-- **数据库**: PostgreSQL 
-- **存储**: S3 兼容存储（AWS S3/阿里云 OSS）
-- **认证**: NextAuth.js (GitHub OAuth) + API Key
+### 5. 启动开发服务器
 
-## 💼 主要功能模块
+```bash
+pnpm run dev
+```
 
-1. **文件管理系统** - 拖拽上传、预签名 URL、无限滚动列表
-2. **应用管理** - 多应用隔离、存储配置关联
-3. **API 密钥管理** - 为第三方集成提供认证
-4. **用户计划系统** - 免费版（1应用）vs 付费版（无限制）
-5. **存储配置** - 支持多种 S3 兼容存储后端
+访问 [http://localhost:3000](http://localhost:3000) 查看效果。
 
-## 🔐 双重 API 架构
+## 项目结构
 
-- **受保护 API** (`/api/trpc`) - 用户仪表板，Session 认证
-- **开放 API** (`/api/open`) - 第三方集成，API Key 认证
+```
+├── src/
+│   ├── app/                 # Next.js App Router 页面与 API
+│   ├── components/          # React UI 组件
+│   ├── server/              # 后端逻辑
+│   │   ├── db/              # Drizzle ORM Schema 与连接配置
+│   │   ├── services/        # 核心业务逻辑 (RAG, File, Task)
+│   │   └── actions/         # Server Actions
+│   ├── knowledge/           # RAG 知识库源文件 (Markdown/JSON)
+│   └── lib/                 # 通用工具函数
+├── scripts/                 # 运维与初始化脚本
+├── drizzle.config.ts        # Drizzle 配置文件
+└── ...
+```
 
-## 📦 Monorepo 结构
+## 许可证
 
-构建了一个完整的生态系统：
-- `@image-saas/api` - tRPC 客户端库
-- `@image-saas/uploader` - Uppy 上传器集成
-- `@image-saas/upload-button` - Preact 上传组件
-- 还有 Nuxt 示例应用
-
-## 🚀 产品定位
-
-这是一个典型的 **B2B SaaS** 产品，类似于 Cloudinary 或 Supabase Storage，为开发者提供：
-- 简化的文件上传解决方案
-- 灵活的存储后端选择
-- 类型安全的 API 集成
-- 多租户数据隔离
-
-你的项目架构设计得很棒，特别是：
-- **类型安全** - tRPC 提供端到端类型安全
-- **开发体验** - 现代工具链和 DX 优化
-- **可扩展性** - 支持多存储后端和 API 集成
-- **商业模式** - 清晰的免费/付费计划区分
+[MIT](LICENSE)
