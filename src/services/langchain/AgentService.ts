@@ -1,6 +1,11 @@
 import { createAgent } from "langchain";
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { HumanMessage, AIMessage, SystemMessage, BaseMessage } from "@langchain/core/messages";
+import {
+  HumanMessage,
+  AIMessage,
+  SystemMessage,
+  BaseMessage,
+} from "@langchain/core/messages";
 import { z } from "zod";
 import { LangChainService } from "./LangChainService";
 import {
@@ -24,7 +29,8 @@ export interface AgentConfig {
   temperature?: number;
   maxTokens?: number;
   userId: string;
-  userPlan: "free" | "pro";
+  sessionId?: string;
+  userPlan: "free" | "payed";
   systemPrompt?: string;
 }
 
@@ -149,38 +155,38 @@ Always prioritize user experience and data safety. Make your responses warm, hel
 
   /**
    * 注入用户上下文到工具参数
-   * 这样工具可以自动获取 userId 和 userPlan，无需用户提供
-   * 
-   * CRITICAL: We need to remove userId and userPlan from the schema
+   * 这样工具可以自动获取 userId, userPlan 和 sessionId，无需用户提供
+   *
+   * CRITICAL: We need to remove userId, userPlan and sessionId from the schema
    * so the agent doesn't try to pass them - we inject them automatically
    */
   private injectUserContext(
     tools: DynamicStructuredTool[],
     userId: string,
-    userPlan: "free" | "pro"
+    userPlan: "free" | "payed",
+    sessionId?: string,
   ): DynamicStructuredTool[] {
     return tools.map((tool) => {
       // Get the original schema
       const originalSchema = tool.schema as z.ZodObject<z.ZodRawShape>;
-      
+
       // Check which user fields exist in the schema
-      const hasUserId = 'userId' in originalSchema.shape;
-      const hasUserPlan = 'userPlan' in originalSchema.shape;
-      
+      const hasUserId = "userId" in originalSchema.shape;
+      const hasUserPlan = "userPlan" in originalSchema.shape;
+      const hasSessionId = "sessionId" in originalSchema.shape;
+
       // Create new schema, only omitting fields that actually exist
       let newSchema = originalSchema;
-      
-      if (hasUserId && hasUserPlan) {
-        // Both fields exist, omit both
-        newSchema = originalSchema.omit({ userId: true, userPlan: true });
-      } else if (hasUserId) {
-        // Only userId exists, omit only userId
-        newSchema = originalSchema.omit({ userId: true });
-      } else if (hasUserPlan) {
-        // Only userPlan exists, omit only userPlan
-        newSchema = originalSchema.omit({ userPlan: true });
+
+      const omitFields: Record<string, true> = {};
+      if (hasUserId) omitFields.userId = true;
+      if (hasUserPlan) omitFields.userPlan = true;
+      if (hasSessionId) omitFields.sessionId = true;
+
+      if (Object.keys(omitFields).length > 0) {
+        newSchema = originalSchema.omit(omitFields);
       }
-      // If neither exists, use original schema
+      // If none exist, use original schema
 
       // Create new tool instance with modified schema
       return new DynamicStructuredTool({
@@ -193,8 +199,9 @@ Always prioritize user experience and data safety. Make your responses warm, hel
             ...input,
             userId,
             userPlan,
+            ...(sessionId ? { sessionId } : {}),
           };
-          
+
           try {
             // Call the original tool with enriched input
             const result = await tool.invoke(enrichedInput);
@@ -202,7 +209,7 @@ Always prioritize user experience and data safety. Make your responses warm, hel
           } catch (error) {
             // Catch tool errors and return user-friendly messages
             console.error(`[Agent] Tool ${tool.name} error:`, error);
-            
+
             // Return a user-friendly error message
             return JSON.stringify({
               error: "操作失败，请稍后重试",
@@ -244,7 +251,8 @@ Always prioritize user experience and data safety. Make your responses warm, hel
     const toolsWithContext = this.injectUserContext(
       allTools,
       config.userId,
-      config.userPlan
+      config.userPlan,
+      config.sessionId,
     );
 
     // 使用 LangChain 官方 createAgent
@@ -280,7 +288,7 @@ Always prioritize user experience and data safety. Make your responses warm, hel
    */
   public async invoke(
     messages: AgentMessage[],
-    config: AgentConfig
+    config: AgentConfig,
   ): Promise<AgentResponse> {
     const agent = this.createAgentInstance(config);
     const langchainMessages = this.convertMessages(messages);
@@ -291,12 +299,19 @@ Always prioritize user experience and data safety. Make your responses warm, hel
 
     // 提取最后一条消息作为响应
     const lastMessage = result.messages[result.messages.length - 1];
-    
+
     // 提取工具调用信息（如果有）
     const toolCalls = result.messages
-      .filter((msg: BaseMessage) => 'tool_calls' in msg && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0)
+      .filter(
+        (msg: BaseMessage) =>
+          "tool_calls" in msg &&
+          Array.isArray(msg.tool_calls) &&
+          msg.tool_calls.length > 0,
+      )
       .flatMap((msg: BaseMessage) => {
-        const msgWithTools = msg as BaseMessage & { tool_calls?: Array<{ name: string; args: Record<string, unknown> }> };
+        const msgWithTools = msg as BaseMessage & {
+          tool_calls?: Array<{ name: string; args: Record<string, unknown> }>;
+        };
         return (msgWithTools.tool_calls || []).map((tc) => ({
           toolName: tc.name,
           args: tc.args,
@@ -317,7 +332,7 @@ Always prioritize user experience and data safety. Make your responses warm, hel
    */
   public async *stream(
     messages: AgentMessage[],
-    config: AgentConfig
+    config: AgentConfig,
   ): AsyncIterable<{ content: string; isComplete: boolean }> {
     const agent = this.createAgentInstance(config);
     const langchainMessages = this.convertMessages(messages);
@@ -328,7 +343,7 @@ Always prioritize user experience and data safety. Make your responses warm, hel
       },
       {
         streamMode: "messages",
-      }
+      },
     );
 
     for await (const [message] of stream) {

@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS "chat_sessions" (
   "id" uuid PRIMARY KEY NOT NULL,
   "title" varchar(255) DEFAULT 'New Chat' NOT NULL,
   "user_id" text NOT NULL,
-  "model" varchar(100) DEFAULT 'qwen2.5:0.5b' NOT NULL,
+  "model" varchar(100) DEFAULT 'qwen3:0.6b' NOT NULL,
   "created_at" timestamp DEFAULT now(),
   "updated_at" timestamp DEFAULT now(),
   "deleted_at" timestamp

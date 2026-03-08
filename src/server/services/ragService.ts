@@ -1,15 +1,17 @@
 import { db } from "../db/db";
-import { ragQueries, knowledgeBase } from "../db/schema";
+import { ragQueries } from "../db/schema";
 import { OllamaEmbeddings } from "@langchain/ollama";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { RunnableSequence } from "@langchain/core/runnables";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { langchainService } from "@/services/langchain/LangChainService";
 import { PGVectorStore } from "@langchain/community/vectorstores/pgvector";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { Document } from "@langchain/core/documents";
-import fs from "fs/promises";
+import { TextLoader } from "@langchain/classic/document_loaders/fs/text";
+import { BM25Retriever } from "@langchain/community/retrievers/bm25";
+
 import path from "path";
+import fs from "fs/promises";
 
 export interface RAGDocument {
   id: string;
@@ -28,13 +30,18 @@ export interface RAGResponse {
   sources: RAGDocument[];
 }
 
+type RetrievalResults = {
+  bm25: Document[];
+  vector: Array<[Document, number]>; // 向量检索结果包含相似度分数
+};
+
 export class RAGService {
   private static instance: RAGService;
   private vectorStore: PGVectorStore | null = null;
   private embeddings: OllamaEmbeddings;
+  private bm25Retrievers: Map<string, BM25Retriever> = new Map(); // 缓存不同用户的BM25检索器
 
   private constructor() {
-    // 初始化嵌入模型
     this.embeddings = new OllamaEmbeddings({
       model: process.env.OLLAMA_EMBEDDING_MODEL || "qwen3-embedding:0.6b",
       baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
@@ -48,21 +55,16 @@ export class RAGService {
     return RAGService.instance;
   }
 
-  /**
-   * 初始化向量存储
-   */
+  // ─── Vector Store ────────────────────────────────────────────────────────────
+
   private async getVectorStore(): Promise<PGVectorStore> {
     if (this.vectorStore) return this.vectorStore;
 
-    // qwen3-embedding:0.6b 维度，确认 Ollama 模型维度
-    const embeddingDimension = 1024;
-
-    const config = {
+    this.vectorStore = await PGVectorStore.initialize(this.embeddings, {
       postgresConnectionOptions: {
         connectionString: process.env.DATABASE_URL,
         max: 20,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
       },
       tableName: "knowledge_base",
       columns: {
@@ -71,115 +73,93 @@ export class RAGService {
         contentColumnName: "content",
         metadataColumnName: "metadata",
       },
-      embeddingDimension,
-    };
+      // embeddingDimension: parseInt(process.env.EMBEDDING_DIMENSION || "1024"),
+    });
 
-    this.vectorStore = await PGVectorStore.initialize(this.embeddings, config);
     return this.vectorStore;
   }
 
+  // ─── BM25 Retriever 初始化（新增）────────────────────────────────────────────
   /**
-   * 测试 embedding 模型连接
+   * 初始化BM25检索器（按用户权限过滤文档）
    */
+  private async getBM25Retriever(userId: string): Promise<BM25Retriever> {
+    // 缓存key：区分公开文档+用户私有文档
+    const cacheKey = `${userId}`;
+    if (this.bm25Retrievers.has(cacheKey)) {
+      return this.bm25Retrievers.get(cacheKey)!;
+    }
+
+    const vectorStore = await this.getVectorStore();
+    // 从PGVectorStore中加载所有符合权限的文档（公开+当前用户+system）
+    const allDocs = await vectorStore.similaritySearch("*", 10000); // 加载足够多的文档
+    const filteredDocs = allDocs.filter((doc) => {
+      const meta = doc.metadata;
+      return (
+        meta.isPublic === true ||
+        meta.userId === "system" ||
+        meta.userId === userId
+      );
+    });
+
+    // 初始化BM25检索器
+    const bm25Retriever = BM25Retriever.fromDocuments(filteredDocs, {
+      k: parseInt(process.env.BM25_TOP_K || "10"), // BM25召回数量
+    });
+    this.bm25Retrievers.set(cacheKey, bm25Retriever);
+
+    // 定期清理缓存（可选，避免内存泄漏）
+    setTimeout(
+      () => {
+        this.bm25Retrievers.delete(cacheKey);
+      },
+      30 * 60 * 1000,
+    ); // 30分钟后清理
+
+    return bm25Retriever;
+  }
+
+  // ─── Embedding Test ──────────────────────────────────────────────────────────
+
   async testEmbeddingConnection(): Promise<{
     success: boolean;
     model: string;
+    dimension?: number;
     error?: string;
   }> {
+    const embeddingModel =
+      process.env.OLLAMA_EMBEDDING_MODEL || "qwen3-embedding:0.6b";
     try {
-      const embeddingModel =
-        process.env.OLLAMA_EMBEDDING_MODEL || "qwen3-embedding:0.6b";
-      const testText = "测试文本";
-      const embedding = await this.embeddings.embedQuery(testText);
+      const embedding = await this.embeddings.embedQuery("测试文本");
 
-      if (!embedding || !Array.isArray(embedding) || embedding.length === 0) {
+      if (!Array.isArray(embedding) || embedding.length === 0) {
         return {
           success: false,
           model: embeddingModel,
           error: "Invalid embedding response format",
         };
       }
-      return { success: true, model: embeddingModel };
+
+      console.log(`[RAG] Embedding dimension: ${embedding.length}`);
+      return {
+        success: true,
+        model: embeddingModel,
+        dimension: embedding.length,
+      };
     } catch (error) {
       return {
         success: false,
-        model: process.env.OLLAMA_EMBEDDING_MODEL || "qwen3-embedding:0.6b",
+        model: embeddingModel,
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  /**
-   * 添加单个文档到知识库（使用 LangChain 标准方式）
-   */
-  async addDocument(
-    title: string,
-    content: string,
-    type: string,
-    category?: string,
-    tags: string[] = [],
-    source?: string,
-    userId: string = "system",
-  ): Promise<string[]> {
-    console.log(`[RAG] Adding document: ${title}`);
+  // ─── Add Documents ───────────────────────────────────────────────────────────
 
-    // 1. 使用优化的文本切分器
-    const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 800,
-      chunkOverlap: 150,
-      separators: ["\n\n", "\n", "。", "！", "？", "；", "，", " ", ""],
-      keepSeparator: true,
-    });
-
-    const originalId = crypto.randomUUID();
-
-    // 2. 创建 LangChain Document 对象（标准格式）
-    const docs = await splitter.createDocuments(
-      [content],
-      [
-        {
-          // 核心元数据（用于检索和过滤）
-          title,
-          type,
-          category: category || "general",
-          tags: tags || [],
-          source: source || null,
-          userId,
-          isPublic: userId === "system",
-          // 关联同一文档的所有分片
-          originalId,
-          // 时间戳
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-    );
-
-    // 3. 为每个分片添加索引信息
-    docs.forEach((doc, index) => {
-      doc.metadata.chunkIndex = index;
-      doc.metadata.totalChunks = docs.length;
-      doc.metadata.chunkTitle = `${title} (Part ${index + 1}/${docs.length})`;
-    });
-
-    console.log(`[RAG] Split into ${docs.length} chunks`);
-
-    // 4. 使用 LangChain 标准方法批量添加到向量存储
-    const vectorStore = await this.getVectorStore();
-    await vectorStore.addDocuments(docs);
-
-    console.log(`[RAG] Added ${docs.length} document chunks`);
-
-    // PGVectorStore.addDocuments() doesn't return IDs, so we return an empty array
-    return [];
-  }
-
-  /**
-   * 批量添加文档（性能优化版本）
-   */
   async addDocuments(
     documents: Array<{
-      title: string;
+      title?: string;
       content: string;
       type: string;
       category?: string;
@@ -187,384 +167,347 @@ export class RAGService {
       source?: string;
       userId?: string;
     }>,
-  ): Promise<string[]> {
+  ): Promise<void> {
     console.log(`[RAG] Batch adding ${documents.length} documents`);
 
-    const allDocs: Document[] = [];
     const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 800,
-      chunkOverlap: 150,
-      separators: ["\n\n", "\n", "。", "！", "？", "；", "，", " ", ""],
-      keepSeparator: true,
+      chunkSize: parseInt(process.env.CHUNK_SIZE || "1000"),
+      chunkOverlap: parseInt(process.env.CHUNK_OVERLAP || "100"),
+      separators: ["\n\n", "\n", "。", "！", "？", "；", " ", ""],
+      keepSeparator: false,
     });
 
-    // 1. 处理所有文档并创建 Document 对象
-    for (const doc of documents) {
-      const originalId = crypto.randomUUID();
-      const userId = doc.userId || "system";
+    const allDocs: Document[] = [];
 
+    for (const doc of documents) {
       const chunks = await splitter.createDocuments(
         [doc.content],
         [
           {
-            title: doc.title,
-            type: doc.type,
+            title: doc.title || "",
+            type: doc.type || "document",
             category: doc.category || "general",
-            tags: doc.tags || [],
-            source: doc.source || null,
-            userId,
-            isPublic: userId === "system",
-            originalId,
+            tags: JSON.stringify(doc.tags || []),
+            source: doc.source || "",
+            userId: doc.userId || "system",
+            isPublic: !doc.userId || doc.userId === "system",
+            originalId: crypto.randomUUID(),
             createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
           },
         ],
       );
-
-      // 添加分片索引
-      chunks.forEach((chunk, index) => {
-        chunk.metadata.chunkIndex = index;
-        chunk.metadata.totalChunks = chunks.length;
-        chunk.metadata.chunkTitle = `${doc.title} (Part ${index + 1}/${chunks.length})`;
-      });
-
       allDocs.push(...chunks);
     }
 
-    console.log(`[RAG] Total chunks to add: ${allDocs.length}`);
+    console.log(`[RAG] Total chunks to embed: ${allDocs.length}`);
 
-    // 2. 批量添加到向量存储
-    try {
-      const vectorStore = await this.getVectorStore();
-      await vectorStore.addDocuments(allDocs);
-      console.log(`[RAG] Successfully added ${allDocs.length} chunks`);
-      // PGVectorStore.addDocuments() doesn't return IDs, so we return an empty array
-      return [];
-    } catch (error) {
-      console.error("[RAG] Failed to batch add documents:", error);
-      throw error;
+    const BATCH_SIZE = 50;
+    const vectorStore = await this.getVectorStore();
+
+    for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
+      const batch = allDocs.slice(i, i + BATCH_SIZE);
+      await vectorStore.addDocuments(batch);
+      console.log(
+        `[RAG] Uploaded batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(allDocs.length / BATCH_SIZE)}`,
+      );
     }
+
+    // 新增：添加文档后清空BM25缓存，确保新文档能被检索到
+    this.bm25Retrievers.clear();
+
+    console.log(`[RAG] Done. Added ${allDocs.length} chunks.`);
   }
 
+  // ─── 多路结果融合（新增）──────────────────────────────────────────────────────
   /**
-   * 查询重写（必要操作）
+   * 融合BM25和向量检索结果
+   * @param results 多路检索结果
+   * @param userId 用户ID（用于权限过滤）
+   * @returns 融合后的文档（带相似度分数）
    */
-  private async rewriteQuery(query: string): Promise<string> {
-    try {
-      const chatModel = langchainService.getModel("ollama/qwen3:0.6b", {});
+  private fuseRetrievalResults(
+    results: RetrievalResults,
+    userId: string,
+  ): Array<[Document, number]> {
+    // 1. 给BM25结果分配默认相似度（0.8-0.5区间，高于向量检索的低相似度结果）
+    const bm25DocsWithScore = results.bm25.map((doc, index) => {
+      // 按BM25召回顺序分配分数：第1个0.8，第2个0.75，依次递减
+      const score = Math.max(0.5, 0.8 - index * 0.05);
+      return [doc, score] as [Document, number];
+    });
 
-      const rewritePrompt = ChatPromptTemplate.fromMessages([
-        [
-          "system",
-          `你是一个查询优化助手。请将用户的问题重写为更适合检索的形式。
-规则：
-1. 提取关键词和核心概念
-2. 扩展缩写和简称
-3. 添加相关的同义词
-4. 保持原意，但使查询更清晰
-5. 只返回重写后的查询，不要解释
+    // 2. 合并所有结果（向量+BM25）
+    const allResults = [...results.vector, ...bm25DocsWithScore];
 
-示例：
-用户查询：怎么用API
-重写查询：如何使用 API 接口 应用程序编程接口 调用方法`,
-        ],
-        ["user", "{query}"],
-      ]);
+    // 3. 去重（基于originalId，避免重复chunk）
+    const seenIds = new Set<string>();
+    const uniqueResults = allResults.filter(([doc]) => {
+      const originalId = doc.metadata.originalId as string;
+      if (seenIds.has(originalId)) return false;
+      seenIds.add(originalId);
+      return true;
+    });
 
-      const chain = RunnableSequence.from([
-        rewritePrompt,
-        chatModel,
-        new StringOutputParser(),
-      ]);
+    // 4. 权限过滤（复用原有逻辑）
+    const filteredResults = uniqueResults.filter(([doc]) => {
+      const meta = doc.metadata;
+      return (
+        meta.isPublic === true ||
+        meta.userId === "system" ||
+        meta.userId === userId
+      );
+    });
 
-      const rewritten = await chain.invoke({ query });
-      console.log(`[RAG] Query rewritten: "${query}" -> "${rewritten}"`);
-      return rewritten.trim() || query;
-    } catch (error) {
-      console.error("[RAG] Query rewrite failed:", error);
-      return query;
-    }
+    // 5. 按相似度降序排序
+    filteredResults.sort(([, a], [, b]) => b - a);
+
+    return filteredResults;
   }
+
+  // ─── Retrieval ───────────────────────────────────────────────────────────────
 
   /**
    * 检索相关文档
+   * 采用多路召回策略：通过 BM25 结合向量相似度策略，合并去重后按相似度排序
    */
   async retrieveRelevantDocs(
     query: string,
     userId: string,
     limit: number = 5,
-    useQueryRewrite: boolean = true,
-    useMMR: boolean = true,
   ): Promise<RAGDocument[]> {
-    const finalQuery = useQueryRewrite ? await this.rewriteQuery(query) : query;
     const vectorStore = await this.getVectorStore();
+    const bm25Retriever = await this.getBM25Retriever(userId); // 新增：初始化BM25检索器
 
-    const docsWithScores = await vectorStore.similaritySearchWithScore(
-      finalQuery,
-      limit * 2,
+    // 修改：并行调用向量检索和BM25检索
+    const [vectorResults, bm25Results] = await Promise.all([
+      vectorStore.similaritySearchWithScore(query, limit * 3), // 向量检索多召回一些
+      bm25Retriever.invoke(query), // BM25检索
+    ]);
+
+    // 新增：融合多路结果
+    const fusedResults = this.fuseRetrievalResults(
+      {
+        vector: vectorResults,
+        bm25: bm25Results,
+      },
+      userId,
     );
 
-    const filtered = docsWithScores.filter(([doc]) => {
-      const meta = doc.metadata;
-      return meta.userId === userId || meta.isPublic === true || meta.userId === "system";
-    });
-
-    return filtered.slice(0, limit).map(([doc, similarity]) => ({
-      id: (doc.metadata.id as string) || crypto.randomUUID(),
-      title: (doc.metadata.chunkTitle || doc.metadata.title) as string,
+    // 原有逻辑：截取topN并转换格式（仅修改了数据源从merged→fusedResults）
+    return fusedResults.slice(0, limit).map(([doc, similarity]) => ({
+      id: (doc.metadata.originalId as string) || crypto.randomUUID(),
+      title: (doc.metadata.title as string) || "",
       content: doc.pageContent,
       type: (doc.metadata.type as string) || "document",
       category: (doc.metadata.category as string) || "general",
-      tags: (doc.metadata.tags as string[]) || [],
+      tags: this.parseTags(doc.metadata.tags),
       source: (doc.metadata.source as string) || "",
       similarity,
     }));
   }
 
-  /**
-   * 生成 RAG 回答
-   */                    
+  private parseTags(raw: unknown): string[] {
+    if (Array.isArray(raw)) return raw as string[];
+    if (typeof raw === "string") {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  // ─── Generate Response ───────────────────────────────────────────────────────
+
   async generateRAGResponse(
     query: string,
     sessionId: string,
     userId: string,
     model?: string,
-    options?: {
-      useQueryRewrite?: boolean;
-      useMMR?: boolean;
-      topK?: number;
-    },
+    options?: { topK?: number },
   ): Promise<RAGResponse> {
     console.log(
-      `[RAG] Generating response for query: "${query}" (User: ${userId}, Session: ${sessionId})`,
+      `[RAG] Query: "${query}" (User: ${userId}, Session: ${sessionId})`,
     );
 
-    try {
-      const {
-        useQueryRewrite = true,
-        useMMR = true,
-        topK = 5,
-      } = options || {};
+    const { topK = 5 } = options || {};
+    const sources = await this.retrieveRelevantDocs(query, userId, topK);
 
-      const sources = await this.retrieveRelevantDocs(
-        query,
-        userId,
-        topK,
-        useQueryRewrite,
-        useMMR,
-      );
-
-      if (sources.length === 0) {
-        console.warn(`[RAG] No relevant documents found for query: "${query}"`);
-        
-        await db.insert(ragQueries).values({
-          id: crypto.randomUUID(),
-          query,
-          retrievedDocs: [],
-          response: "资料库中未找到相关信息。请尝试调整查询或咨询管理员。",
-          sessionId,
-          userId,
-        });
-
-        return {
-          answer: "资料库中未找到相关信息。请尝试调整查询或咨询管理员。",
-          query,
-          sources: [],
-        };
-      }
-
-      const context = sources
-        .map(
-          (d, i) =>
-            `[文档 ${i + 1}] 标题: ${d.title}\n相似度: ${(d.similarity || 0).toFixed(3)}\n内容: ${d.content}`,
-        )
-        .join("\n\n---\n\n");
-
-      const chatModel = langchainService.getModel(
-        model || "ollama/qwen3:0.6b",
-        {},
-      );
-
-      const prompt = ChatPromptTemplate.fromMessages([
-        [
-          "system",
-          `你是一个专业的知识库助手。请严格基于以下提供的【相关文档】内容来回答用户的提问。
-
-  规则：
-  1. 如果文档中包含答案，请整理并准确回答
-  2. 引用文档时请标注来源（如：根据文档1...）
-  3. 如果文档中没有相关信息，请直接说明"资料库中未找到相关信息"
-  4. 严禁编造或提供文档外的信息
-  5. 回答要简洁、准确、有条理
-
-  【相关文档】
-  {context}`,
-        ],
-        ["user", `{question}`],
-      ]);
-
-      const ragChain = prompt.pipe(chatModel).pipe(new StringOutputParser());
-
-      const answer = await ragChain.invoke({
-        context,
-        question: query,
-      });
-
+    // 未找到任何文档
+    if (sources.length === 0) {
+      const noAnswerText =
+        "资料库中未找到相关信息。请尝试调整查询或咨询管理员。";
       await db.insert(ragQueries).values({
         id: crypto.randomUUID(),
         query,
-        retrievedDocs: sources.map((s) => s.id),
-        response: answer,
+        retrievedDocs: [],
+        response: noAnswerText,
         sessionId,
         userId,
       });
+      return { answer: noAnswerText, query, sources: [] };
+    }
 
+    // 相似度阈值过滤，避免低质量文档污染 context
+    const SIMILARITY_THRESHOLD = 0.4;
+    const relevantSources = sources.filter(
+      (s) => (s.similarity ?? 0) >= SIMILARITY_THRESHOLD,
+    );
+
+    if (relevantSources.length === 0) {
       return {
-        answer,
+        answer: "找到了一些文档，但相关度较低，建议重新描述问题。",
         query,
         sources,
       };
-    } catch (error) {
-      console.error("[RAG] Response generation failed:", error);
-      throw error;
     }
+
+    // 构建 context（已按相似度降序排列）
+    const context = relevantSources
+      .map((d, i) => `[文档 ${i + 1}]\n标题: ${d.title}\n内容:\n${d.content}`)
+      .join("\n\n---\n\n");
+
+    const chatModel = langchainService.getModel(
+      model || "openai/doubao-seed-2-0-pro-260215",
+      {},
+    );
+
+    const prompt = ChatPromptTemplate.fromMessages([
+      [
+        "system",
+        `你是一个专业的知识库助手。请严格基于以下【参考文档】回答问题。
+
+规则：
+1. 只使用文档中的信息，禁止编造
+2. 引用来源时注明"根据文档X"
+3. 文档中无相关信息时，直接说明"资料库中未找到相关信息"
+4. 回答简洁、准确、有条理
+
+【参考文档】
+{context}`,
+      ],
+      ["user", "{question}"],
+    ]);
+
+    const answer = await prompt
+      .pipe(chatModel)
+      .pipe(new StringOutputParser())
+      .invoke({ context, question: query });
+
+    await db.insert(ragQueries).values({
+      id: crypto.randomUUID(),
+      query,
+      retrievedDocs: sources.map((s) => s.id),
+      response: answer,
+      sessionId,
+      userId,
+    });
+
+    return { answer, query, sources };
   }
 
-  /**
-   * 初始化系统知识库
-   */
+  // ─── Initialize Knowledge Base ───────────────────────────────────────────────
+
   async initializeSystemKnowledge(): Promise<void> {
     console.log("[RAG] Initializing system knowledge base...");
 
-    await db.delete(knowledgeBase);
-    console.log("[RAG] Cleared existing knowledge base");
-
     const knowledgeDir = path.join(process.cwd(), "src/knowledge");
+    const files = await fs.readdir(knowledgeDir);
 
-    try {
-      const files = await fs.readdir(knowledgeDir);
-      
-      const allDocuments = (await Promise.all(
-        files.map(async (file) => {
-          const filePath = path.join(knowledgeDir, file);
-          const stats = await fs.stat(filePath);
-
-          if (stats.isDirectory()) return [];
-
-          const ext = path.extname(file).toLowerCase();
-          const content = await fs.readFile(filePath, "utf-8");
-
-          console.log(`[RAG] Processing knowledge file: ${file}`);
-
-          try {
-            if (ext === ".json") {
-              return await this.parseJsonFile(content, file);
-            } else if (ext === ".md") {
-              return [await this.parseMarkdownFile(content, file)];
-            }
-            return [];
-          } catch (err) {
-            console.error(`[RAG] Failed to process file ${file}:`, err);
-            return [];
-          }
-        })
-      )).flat();
-
-      if (allDocuments.length > 0) {
-        console.log(`[RAG] Adding ${allDocuments.length} documents to knowledge base...`);
-        await this.addDocuments(allDocuments);
-        console.log("[RAG] System knowledge base initialized successfully!");
-      } else {
-        console.warn("[RAG] No documents found to add");
-      }
-    } catch (error) {
-      console.error("[RAG] Failed to load system knowledge:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 解析 JSON 文件
-   */
-  private async parseJsonFile(
-    fileContent: string,
-    filename: string,
-  ): Promise<
-    Array<{
+    const allDocuments: Array<{
       title: string;
       content: string;
       type: string;
       category?: string;
       tags?: string[];
       source?: string;
+    }> = [];
+
+    for (const file of files) {
+      const filePath = path.join(knowledgeDir, file);
+      const stats = await fs.stat(filePath);
+      if (stats.isDirectory()) continue;
+
+      const ext = path.extname(file).toLowerCase();
+      console.log(`[RAG] Processing: ${file}`);
+
+      try {
+        if (ext === ".json") {
+          allDocuments.push(...(await this.parseJsonFile(filePath)));
+        } else if (ext === ".md") {
+          allDocuments.push(...(await this.parseMarkdownFile(filePath)));
+        }
+      } catch (err) {
+        console.error(`[RAG] Failed to process ${file}:`, err);
+      }
+    }
+
+    if (allDocuments.length > 0) {
+      console.log(`[RAG] Adding ${allDocuments.length} documents...`);
+      await this.addDocuments(allDocuments);
+      console.log("[RAG] Knowledge base initialized!");
+    } else {
+      console.warn("[RAG] No documents found in knowledge directory");
+    }
+  }
+
+  // ─── File Parsers ────────────────────────────────────────────────────────────
+
+  /**
+   * 解析 JSON 文件
+   */
+  private async parseJsonFile(filePath: string): Promise<
+    Array<{
+      title: string;
+      content: string;
+      type: string;
+      category?: string;
+      tags?: string[];
+      source: string;
     }>
   > {
-    const items = JSON.parse(fileContent);
-    if (!Array.isArray(items)) return [];
+    const raw = await fs.readFile(filePath, "utf-8");
+    const data = JSON.parse(raw);
+    const items = Array.isArray(data) ? data : [data];
 
-    return items.map((item) => ({
-      title: item.title,
-      content: item.content,
-      type: item.type || "document",
-      category: item.category,
-      tags: item.tags || [],
-      source: filename,
-    }));
+    return items
+      .filter((item) => !!item.content)
+      .map((item) => ({
+        title: item.title || path.basename(filePath, ".json"),
+        content: item.content as string,
+        type: (item.type as string) || "document",
+        category: item.category as string | undefined,
+        tags: Array.isArray(item.tags) ? (item.tags as string[]) : [],
+        source: filePath,
+      }));
   }
 
   /**
    * 解析 Markdown 文件
    */
-  private async parseMarkdownFile(
-    fileContent: string,
-    filename: string,
-  ): Promise<{
-    title: string;
-    content: string;
-    type: string;
-    category?: string;
-    tags?: string[];
-    source?: string;
-  }> {
-    const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
-    const match = fileContent.match(frontmatterRegex);
+  private async parseMarkdownFile(filePath: string): Promise<
+    Array<{
+      title: string;
+      content: string;
+      type: string;
+      source: string;
+    }>
+  > {
+    const loader = new TextLoader(filePath);
+    const docs = await loader.load();
 
-    let title = path.basename(filename, ".md");
-    let type = "document";
-    let category = "general";
-    let tags: string[] = [];
-    let content = fileContent;
+    return docs.map((doc) => {
+      const titleMatch = doc.pageContent.match(/^#\s+(.+)/m);
+      const title = titleMatch?.[1] || path.basename(filePath, ".md");
 
-    if (match) {
-      const frontmatter = match[1];
-      content = fileContent.replace(match[0], "").trim();
-
-      const lines = frontmatter.split("\n");
-      for (const line of lines) {
-        const [key, ...values] = line.split(":");
-        if (!key || !values) continue;
-
-        const value = values.join(":").trim();
-        const cleanKey = key.trim();
-
-        if (cleanKey === "title") title = value;
-        if (cleanKey === "type") type = value;
-        if (cleanKey === "category") category = value;
-        if (cleanKey === "tags") {
-          const tagStr = value.replace(/^\[|\]$/g, "");
-          tags = tagStr.split(",").map((t) => t.trim());
-        }
-      }
-    }
-
-    return {
-      title,
-      content,
-      type,
-      category,
-      tags,
-      source: filename,
-    };
+      return {
+        title,
+        content: doc.pageContent,
+        type: "markdown",
+        source: filePath,
+      };
+    });
   }
 }
 

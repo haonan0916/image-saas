@@ -4,7 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { trpcClientReact } from "@/utils/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,12 +35,13 @@ import {
   User,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/hooks/useLocale";
 import { AgentWelcome } from "./AgentWelcome";
+import { ModelSelector } from "./ModelSelector";
 
 // 类型定义
 interface ChatSession {
@@ -64,7 +70,11 @@ interface ChatDialogProps {
 }
 
 // 用户头像组件
-const UserAvatar = ({ user }: { user: { name?: string | null; image?: string | null } | undefined }) => {
+const UserAvatar = ({
+  user,
+}: {
+  user: { name?: string | null; image?: string | null } | undefined;
+}) => {
   const [imageError, setImageError] = useState(false);
 
   return (
@@ -86,7 +96,10 @@ const UserAvatar = ({ user }: { user: { name?: string | null; image?: string | n
   );
 };
 
-export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId'>) {
+export function ChatDialog({
+  open,
+  onOpenChange,
+}: Omit<ChatDialogProps, "userId">) {
   const { dict } = useLocale();
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -94,18 +107,26 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
   const [newTitle, setNewTitle] = useState("");
   const [useRAG, setUseRAG] = useState(false); // RAG 开关
   const [useAgent, setUseAgent] = useState(false); // Agent 开关
+  const [selectedModel, setSelectedModel] = useState<string>("");
 
-  // 使用本地状态管理临时消息和加载状态
-  const [tempMessages, setTempMessages] = useState<Map<string, ChatMessage[]>>(new Map());
-  const [loadingStates, setLoadingStates] = useState<Map<string, boolean>>(new Map());
-  const [thinkingStates, setThinkingStates] = useState<Map<string, string>>(new Map()); // 存储思考内容
+  const [loadingStates, setLoadingStates] = useState<Map<string, boolean>>(
+    new Map(),
+  );
+  const [thinkingStates, setThinkingStates] = useState<Map<string, string>>(
+    new Map(),
+  ); // 存储思考内容
+  const [tempMessages, setTempMessages] = useState<Map<string, ChatMessage[]>>(
+    new Map(),
+  ); // 存储流式传输过程中的临时消息
 
   // 获取当前会话的加载状态
-  const isLoading = currentSessionId ? (loadingStates.get(currentSessionId) || false) : false;
+  const isLoading = currentSessionId
+    ? loadingStates.get(currentSessionId) || false
+    : false;
 
   // 设置特定会话的加载状态
   const setSessionLoading = (sessionId: string, loading: boolean) => {
-    setLoadingStates(prev => {
+    setLoadingStates((prev) => {
       const newMap = new Map(prev);
       if (loading) {
         newMap.set(sessionId, true);
@@ -118,17 +139,17 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
 
   // 清理会话状态
   const clearSessionState = (sessionId: string) => {
-    setLoadingStates(prev => {
+    setLoadingStates((prev) => {
       const newMap = new Map(prev);
       newMap.delete(sessionId);
       return newMap;
     });
-    setTempMessages(prev => {
+    setTempMessages((prev) => {
       const newMap = new Map(prev);
       newMap.delete(sessionId);
       return newMap;
     });
-    setThinkingStates(prev => {
+    setThinkingStates((prev) => {
       const newMap = new Map(prev);
       newMap.delete(sessionId);
       return newMap;
@@ -149,10 +170,10 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
   const adjustTextareaHeight = useCallback(() => {
     const textarea = inputRef.current;
     if (textarea) {
-      textarea.style.height = 'auto';
+      textarea.style.height = "auto";
       const scrollHeight = textarea.scrollHeight;
       const maxHeight = 128; // max-h-32 = 8rem = 128px
-      textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+      textarea.style.height = Math.min(scrollHeight, maxHeight) + "px";
     }
   }, []);
 
@@ -162,65 +183,101 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
   }, [message, adjustTextareaHeight]);
 
   // 获取会话列表
-  const { data: sessions, refetch: refetchSessions } = trpcClientReact.chat.getSessions.useQuery(
-    undefined,
-    { enabled: open }
-  );
+  const { data: sessions, refetch: refetchSessions } =
+    trpcClientReact.chat.getSessions.useQuery(undefined, { enabled: open });
 
   // 获取当前会话详情
-  const { data: sessionData, refetch: refetchCurrentSession } = trpcClientReact.chat.getSession.useQuery(
-    { sessionId: currentSessionId! },
-    {
-      enabled: !!currentSessionId && !!sessions?.find(s => s.id === currentSessionId) // 确保会话存在于列表中
-    }
-  );
+  const { data: sessionData, refetch: refetchCurrentSession } =
+    trpcClientReact.chat.getSession.useQuery(
+      { sessionId: currentSessionId! },
+      {
+        enabled:
+          !!currentSessionId &&
+          !!sessions?.find((s) => s.id === currentSessionId), // 确保会话存在于列表中
+      },
+    );
 
   // 将后端返回的数据结构转换为前端期望的格式，并合并临时消息
-  const currentSession = sessionData ? {
-    ...sessionData.session,
-    messages: (() => {
-      let messages = sessionData.messages || [];
+  const currentSession = sessionData
+    ? {
+        ...sessionData.session,
+        messages: (() => {
+          let messages = sessionData.messages || [];
 
-      // 合并当前会话的临时消息
-      if (currentSessionId && tempMessages.has(currentSessionId)) {
-        const sessionTempMessages = tempMessages.get(currentSessionId) || [];
+          // 合并当前会话的临时消息
+          if (currentSessionId && tempMessages.has(currentSessionId)) {
+            const sessionTempMessages =
+              tempMessages.get(currentSessionId) || [];
 
-        // 只过滤重复的用户消息，AI消息直接添加
-        const filteredTempMessages = sessionTempMessages.filter(tempMsg => {
-          if (tempMsg.role === 'user') {
-            // 检查是否已经有相同内容的用户消息
-            const isDuplicate = messages.some(dbMsg =>
-              dbMsg.role === 'user' && dbMsg.content === tempMsg.content
+            // 只过滤重复的用户消息，AI消息直接添加
+            const filteredTempMessages = sessionTempMessages.filter(
+              (tempMsg) => {
+                if (tempMsg.role === "user") {
+                  // 检查是否已经有相同内容的用户消息
+                  const isDuplicate = messages.some(
+                    (dbMsg) =>
+                      dbMsg.role === "user" &&
+                      dbMsg.content === tempMsg.content,
+                  );
+                  return !isDuplicate;
+                }
+                // AI消息直接通过，不过滤
+                return true;
+              },
             );
-            return !isDuplicate;
+
+            messages = [...messages, ...filteredTempMessages];
           }
-          // AI消息直接通过，不过滤
-          return true;
-        });
 
-        messages = [...messages, ...filteredTempMessages];
+          return messages;
+        })(),
       }
+    : null;
 
-      return messages;
-    })()
-  } : null;
+  // 当切换会话时，更新选中的模型
+  useEffect(() => {
+    if (currentSession?.model) {
+      // 如果模型ID没有包含提供商前缀，添加默认前缀
+      const modelId = currentSession.model.includes("/")
+        ? currentSession.model
+        : `openai/${currentSession.model}`;
+      setSelectedModel(modelId);
+    }
+  }, [currentSession?.model]);
 
   // 检查连接状态
-  const { data: connectionStatus } = trpcClientReact.chat.checkConnection.useQuery(
-    undefined,
-    { enabled: open, refetchInterval: 30000 }
-  );
+  const { data: connectionStatus } =
+    trpcClientReact.chat.checkConnection.useQuery(undefined, {
+      enabled: open,
+      refetchInterval: 30000,
+    });
+
+  // 如果没有选中模型且没有当前会话，使用连接状态中的默认模型
+  useEffect(() => {
+    if (connectionStatus?.model && !selectedModel && !currentSessionId) {
+      // 如果模型ID没有包含提供商前缀，添加默认前缀
+      const modelId = connectionStatus.model.includes("/")
+        ? connectionStatus.model
+        : `openai/${connectionStatus.model}`;
+      setSelectedModel(modelId);
+    }
+  }, [connectionStatus, selectedModel, currentSessionId]);
 
   // Mutations
-  const createSessionMutation = trpcClientReact.chat.createSession.useMutation();
-  const deleteSessionMutation = trpcClientReact.chat.deleteSession.useMutation();
-  const updateTitleMutation = trpcClientReact.chat.updateSessionTitle.useMutation();
+  const createSessionMutation =
+    trpcClientReact.chat.createSession.useMutation();
+  const deleteSessionMutation =
+    trpcClientReact.chat.deleteSession.useMutation();
+  const updateTitleMutation =
+    trpcClientReact.chat.updateSessionTitle.useMutation();
 
   // 自动滚动到底部
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-      const scrollContainer = messagesEndRef.current.closest('[data-radix-scroll-area-viewport]');
+      const scrollContainer = messagesEndRef.current.closest(
+        "[data-radix-scroll-area-viewport]",
+      );
       if (scrollContainer) {
         setTimeout(() => {
           scrollContainer.scrollTop = scrollContainer.scrollHeight;
@@ -236,7 +293,9 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 100);
-      const scrollContainer = messagesEndRef.current.closest('[data-radix-scroll-area-viewport]');
+      const scrollContainer = messagesEndRef.current.closest(
+        "[data-radix-scroll-area-viewport]",
+      );
       if (scrollContainer) {
         setTimeout(() => {
           scrollContainer.scrollTop = scrollContainer.scrollHeight;
@@ -254,7 +313,11 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
 
   // 当对话框打开且有当前会话时，自动滚动到底部
   useEffect(() => {
-    if (open && currentSession?.messages && currentSession.messages.length > 0) {
+    if (
+      open &&
+      currentSession?.messages &&
+      currentSession.messages.length > 0
+    ) {
       const timer = setTimeout(() => {
         forceScrollToBottom();
       }, 200);
@@ -264,7 +327,11 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
 
   // 当切换会话时，也自动滚动到底部
   useEffect(() => {
-    if (currentSessionId && currentSession?.messages && currentSession.messages.length > 0) {
+    if (
+      currentSessionId &&
+      currentSession?.messages &&
+      currentSession.messages.length > 0
+    ) {
       const timer = setTimeout(() => {
         forceScrollToBottom();
       }, 200);
@@ -287,6 +354,7 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
     try {
       const session = await createSessionMutation.mutateAsync({
         title: dict.chat.newChat,
+        model: selectedModel || undefined,
       });
       setCurrentSessionId(session.id);
       await refetchSessions();
@@ -295,7 +363,12 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
       toast.error("创建对话失败");
       console.error(error);
     }
-  }, [createSessionMutation, refetchSessions, dict.chat.newChat]);
+  }, [
+    createSessionMutation,
+    refetchSessions,
+    dict.chat.newChat,
+    selectedModel,
+  ]);
 
   // 发送消息（流式）
   const handleSendMessage = async () => {
@@ -327,10 +400,14 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
     };
 
     // 使用本地状态立即添加临时消息，提供即时反馈
-    setTempMessages(prev => {
+    setTempMessages((prev) => {
       const newMap = new Map(prev);
       const sessionTempMessages = newMap.get(targetSessionId) || [];
-      newMap.set(targetSessionId, [...sessionTempMessages, tempUserMessage, tempAIMessage]);
+      newMap.set(targetSessionId, [
+        ...sessionTempMessages,
+        tempUserMessage,
+        tempAIMessage,
+      ]);
       return newMap;
     });
 
@@ -338,15 +415,15 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
       // 如果使用 Agent 模式，调用 Agent API
       if (useAgent) {
         // 使用 Agent 流式 API
-        const response = await fetch('/api/chat/agent-stream', {
-          method: 'POST',
+        const response = await fetch("/api/chat/agent-stream", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             sessionId: targetSessionId,
             content: userMessage,
-            model: connectionStatus?.model,
+            model: selectedModel || connectionStatus?.model,
           }),
         });
 
@@ -356,11 +433,11 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
 
         const reader = response.body?.getReader();
         if (!reader) {
-          throw new Error('No response body reader available');
+          throw new Error("No response body reader available");
         }
 
         const decoder = new TextDecoder();
-        let buffer = '';
+        let buffer = "";
 
         try {
           while (true) {
@@ -368,79 +445,90 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
             if (done) break;
 
             buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
 
             for (const line of lines) {
-              if (line.startsWith('data: ')) {
+              if (line.startsWith("data: ")) {
                 try {
                   const data = JSON.parse(line.slice(6));
 
-                  if (data.type === 'userMessage') {
+                  if (data.type === "userMessage") {
                     continue;
-                  } else if (data.type === 'streamStart') {
+                  } else if (data.type === "streamStart") {
                     continue;
-                  } else if (data.type === 'toolCall') {
+                  } else if (data.type === "toolCall") {
                     // 显示工具调用信息
                     if (data.sessionId === targetSessionId) {
-                      setThinkingStates(prev => {
+                      setThinkingStates((prev) => {
                         const newMap = new Map(prev);
-                        newMap.set(targetSessionId, `🔧 正在调用工具: ${data.toolName}\n参数: ${JSON.stringify(data.args, null, 2)}`);
+                        newMap.set(
+                          targetSessionId,
+                          `🔧 正在调用工具: ${data.toolName}\n参数: ${JSON.stringify(data.args, null, 2)}`,
+                        );
                         return newMap;
                       });
                     }
-                  } else if (data.type === 'toolResult') {
+                  } else if (data.type === "toolResult") {
                     // 显示工具执行结果
                     if (data.sessionId === targetSessionId) {
-                      setThinkingStates(prev => {
+                      setThinkingStates((prev) => {
                         const newMap = new Map(prev);
-                        const current = newMap.get(targetSessionId) || '';
-                        newMap.set(targetSessionId, `${current}\n\n✅ 工具执行完成`);
+                        const current = newMap.get(targetSessionId) || "";
+                        newMap.set(
+                          targetSessionId,
+                          `${current}\n\n✅ 工具执行完成`,
+                        );
                         return newMap;
                       });
                       // 2秒后清除工具调用信息
                       setTimeout(() => {
-                        setThinkingStates(prev => {
+                        setThinkingStates((prev) => {
                           const newMap = new Map(prev);
                           newMap.delete(targetSessionId);
                           return newMap;
                         });
                       }, 2000);
                     }
-                  } else if (data.type === 'streamChunk') {
+                  } else if (data.type === "streamChunk") {
                     // 更新本地状态中的临时AI消息
                     if (data.sessionId === targetSessionId) {
-                      setTempMessages(prev => {
+                      setTempMessages((prev) => {
                         const newMap = new Map(prev);
-                        const sessionTempMessages = newMap.get(targetSessionId) || [];
-                        const updatedMessages = sessionTempMessages.map(msg => {
-                          if (msg.id === tempAIMessageId) {
-                            return { ...msg, content: data.fullContent };
-                          }
-                          return msg;
-                        });
+                        const sessionTempMessages =
+                          newMap.get(targetSessionId) || [];
+                        const updatedMessages = sessionTempMessages.map(
+                          (msg) => {
+                            if (msg.id === tempAIMessageId) {
+                              return { ...msg, content: data.fullContent };
+                            }
+                            return msg;
+                          },
+                        );
                         newMap.set(targetSessionId, updatedMessages);
                         return newMap;
                       });
                     }
-                  } else if (data.type === 'streamEnd') {
+                  } else if (data.type === "streamEnd") {
                     // 流式结束，清除临时消息并重新获取数据
                     if (data.sessionId === targetSessionId) {
-                      setTempMessages(prev => {
+                      setTempMessages((prev) => {
                         const newMap = new Map(prev);
                         newMap.delete(targetSessionId);
                         return newMap;
                       });
                       setSessionLoading(targetSessionId, false);
                       setTimeout(() => {
-                        queryClient.chat.getSession.invalidate({ sessionId: targetSessionId });
+                        queryClient.chat.getSession.invalidate({
+                          sessionId: targetSessionId,
+                        });
                       }, 100);
                     }
-                  } else if (data.type === 'error') {
+                  } else if (data.type === "error") {
                     throw new Error(data.error);
                   }
                 } catch {
-                  console.warn('Failed to parse stream data:', line);
+                  console.warn("Failed to parse stream data:", line);
                 }
               }
             }
@@ -450,15 +538,15 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
         }
       } else {
         // 使用原有的流式API（普通模式或 RAG 模式）
-        const response = await fetch('/api/chat/stream', {
-          method: 'POST',
+        const response = await fetch("/api/chat/stream", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             sessionId: targetSessionId,
             content: userMessage,
-            model: connectionStatus?.model,
+            model: selectedModel || connectionStatus?.model,
             useRAG: useRAG,
           }),
         });
@@ -469,11 +557,11 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
 
         const reader = response.body?.getReader();
         if (!reader) {
-          throw new Error('No response body reader available');
+          throw new Error("No response body reader available");
         }
 
         const decoder = new TextDecoder();
-        let buffer = '';
+        let buffer = "";
 
         try {
           while (true) {
@@ -481,66 +569,74 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
             if (done) break;
 
             buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
 
             for (const line of lines) {
-              if (line.startsWith('data: ')) {
+              if (line.startsWith("data: ")) {
                 try {
                   const data = JSON.parse(line.slice(6));
 
-                  if (data.type === 'userMessage') {
+                  if (data.type === "userMessage") {
                     continue;
-                  } else if (data.type === 'streamStart') {
+                  } else if (data.type === "streamStart") {
                     continue;
-                  } else if (data.type === 'thinking') {
+                  } else if (data.type === "thinking") {
                     if (data.sessionId === targetSessionId) {
-                      setThinkingStates(prev => {
+                      setThinkingStates((prev) => {
                         const newMap = new Map(prev);
-                        newMap.set(targetSessionId, data.fullThinking || data.content);
+                        newMap.set(
+                          targetSessionId,
+                          data.fullThinking || data.content,
+                        );
                         return newMap;
                       });
                     }
-                  } else if (data.type === 'thinkingEnd') {
+                  } else if (data.type === "thinkingEnd") {
                     if (data.sessionId === targetSessionId) {
-                      setThinkingStates(prev => {
+                      setThinkingStates((prev) => {
                         const newMap = new Map(prev);
                         newMap.delete(targetSessionId);
                         return newMap;
                       });
                     }
-                  } else if (data.type === 'streamChunk') {
+                  } else if (data.type === "streamChunk") {
                     if (data.sessionId === targetSessionId) {
-                      setTempMessages(prev => {
+                      setTempMessages((prev) => {
                         const newMap = new Map(prev);
-                        const sessionTempMessages = newMap.get(targetSessionId) || [];
-                        const updatedMessages = sessionTempMessages.map(msg => {
-                          if (msg.id === tempAIMessageId) {
-                            return { ...msg, content: data.fullContent };
-                          }
-                          return msg;
-                        });
+                        const sessionTempMessages =
+                          newMap.get(targetSessionId) || [];
+                        const updatedMessages = sessionTempMessages.map(
+                          (msg) => {
+                            if (msg.id === tempAIMessageId) {
+                              return { ...msg, content: data.fullContent };
+                            }
+                            return msg;
+                          },
+                        );
                         newMap.set(targetSessionId, updatedMessages);
                         return newMap;
                       });
                     }
-                  } else if (data.type === 'streamEnd') {
+                  } else if (data.type === "streamEnd") {
                     if (data.sessionId === targetSessionId) {
-                      setTempMessages(prev => {
+                      setTempMessages((prev) => {
                         const newMap = new Map(prev);
                         newMap.delete(targetSessionId);
                         return newMap;
                       });
                       setSessionLoading(targetSessionId, false);
                       setTimeout(() => {
-                        queryClient.chat.getSession.invalidate({ sessionId: targetSessionId });
+                        queryClient.chat.getSession.invalidate({
+                          sessionId: targetSessionId,
+                        });
                       }, 100);
                     }
-                  } else if (data.type === 'error') {
+                  } else if (data.type === "error") {
                     throw new Error(data.error);
                   }
                 } catch {
-                  console.warn('Failed to parse stream data:', line);
+                  console.warn("Failed to parse stream data:", line);
                 }
               }
             }
@@ -554,7 +650,7 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
       await refetchSessions();
     } catch (error) {
       // 发送失败时，清除临时消息
-      setTempMessages(prev => {
+      setTempMessages((prev) => {
         const newMap = new Map(prev);
         newMap.delete(targetSessionId);
         return newMap;
@@ -584,9 +680,15 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
       const updatedSessions = await refetchSessions();
 
       // 如果删除的是当前会话，且还有其他会话，则切换到第一个会话
-      if (isDeletingCurrentSession && updatedSessions.data && updatedSessions.data.length > 0) {
+      if (
+        isDeletingCurrentSession &&
+        updatedSessions.data &&
+        updatedSessions.data.length > 0
+      ) {
         // 确保切换到的会话不是刚删除的会话
-        const nextSession = updatedSessions.data.find(s => s.id !== sessionId);
+        const nextSession = updatedSessions.data.find(
+          (s) => s.id !== sessionId,
+        );
         if (nextSession) {
           setTimeout(() => {
             setCurrentSessionId(nextSession.id);
@@ -630,7 +732,9 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
   // 检查当前会话是否仍然存在，如果不存在则清理状态
   useEffect(() => {
     if (currentSessionId && sessions && sessions.length > 0) {
-      const currentSessionExists = sessions.find(s => s.id === currentSessionId);
+      const currentSessionExists = sessions.find(
+        (s) => s.id === currentSessionId,
+      );
       if (!currentSessionExists) {
         // 当前会话已被删除，清理状态
         setCurrentSessionId(null);
@@ -656,14 +760,17 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
   }, [open, sessions, currentSessionId]);
 
   const getConnectionStatusIcon = () => {
-    if (!connectionStatus) return <AlertCircle className="h-4 w-4 text-gray-400" />;
-    if (connectionStatus.connected) return <CheckCircle className="h-4 w-4 text-green-500" />;
+    if (!connectionStatus)
+      return <AlertCircle className="h-4 w-4 text-gray-400" />;
+    if (connectionStatus.connected)
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
     return <XCircle className="h-4 w-4 text-red-500" />;
   };
 
   const getConnectionStatusText = () => {
     if (!connectionStatus) return "检查中...";
-    if (connectionStatus.connected) return `已连接 (${connectionStatus.model})`;
+    if (connectionStatus.connected)
+      return `已连接 (${selectedModel || connectionStatus.model})`;
     return "连接失败";
   };
 
@@ -686,11 +793,18 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                 </span>
               )}
             </DialogTitle>
-            <div className="flex items-center gap-2">
-              {getConnectionStatusIcon()}
-              <span className="text-sm text-muted-foreground">
-                {getConnectionStatusText()}
-              </span>
+            <div className="flex items-center gap-4">
+              <ModelSelector
+                value={selectedModel}
+                onValueChange={setSelectedModel}
+                disabled={isLoading}
+              />
+              <div className="flex items-center gap-2">
+                {getConnectionStatusIcon()}
+                <span className="text-sm text-muted-foreground">
+                  {getConnectionStatusText()}
+                </span>
+              </div>
             </div>
           </div>
         </DialogHeader>
@@ -718,7 +832,7 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                     className={cn(
                       "group relative p-3 rounded-lg cursor-pointer transition-colors",
                       "hover:bg-muted",
-                      currentSessionId === session.id && "bg-muted border"
+                      currentSessionId === session.id && "bg-muted border",
                     )}
                     onClick={() => setCurrentSessionId(session.id)}
                   >
@@ -747,7 +861,9 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                           {session.title}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          {session.updatedAt ? new Date(session.updatedAt).toLocaleDateString() : ''}
+                          {session.updatedAt
+                            ? new Date(session.updatedAt).toLocaleDateString()
+                            : ""}
                         </div>
 
                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -779,9 +895,12 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>确认删除对话</AlertDialogTitle>
+                                  <AlertDialogTitle>
+                                    确认删除对话
+                                  </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    确定要删除对话 &quot;{session.title}&quot; 吗？
+                                    确定要删除对话 &quot;{session.title}&quot;
+                                    吗？
                                     <br />
                                     <span className="text-red-600 font-medium">
                                       此操作不可撤销，对话中的所有消息都将被永久删除。
@@ -791,12 +910,16 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>取消</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => handleDeleteSession(session.id)}
+                                    onClick={() =>
+                                      handleDeleteSession(session.id)
+                                    }
                                     disabled={deleteSessionMutation.isPending}
                                     className="bg-red-600 hover:bg-red-700 focus:ring-red-600 disabled:opacity-50"
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
-                                    {deleteSessionMutation.isPending ? "删除中..." : dict.chat.confirmDelete}
+                                    {deleteSessionMutation.isPending
+                                      ? "删除中..."
+                                      : dict.chat.confirmDelete}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -824,7 +947,9 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                           key={msg.id}
                           className={cn(
                             "flex gap-3",
-                            msg.role === "user" ? "justify-end" : "justify-start"
+                            msg.role === "user"
+                              ? "justify-end"
+                              : "justify-start",
                           )}
                         >
                           {msg.role === "assistant" && (
@@ -840,20 +965,30 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                               "max-w-[70%] rounded-lg px-4 py-2 wrap-break-word",
                               msg.role === "user"
                                 ? "bg-blue-600 text-white"
-                                : "bg-muted"
+                                : "bg-muted",
                             )}
                           >
                             <div className="text-sm whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">
                               {msg.content ? (
                                 msg.content
-                              ) : msg.role === "assistant" && !msg.content && loadingStates.get(msg.sessionId) ? (
+                              ) : msg.role === "assistant" &&
+                                !msg.content &&
+                                loadingStates.get(msg.sessionId) ? (
                                 <div className="flex items-center gap-2">
                                   <div className="flex gap-1">
                                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                                    <div
+                                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                      style={{ animationDelay: "0.1s" }}
+                                    />
+                                    <div
+                                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                      style={{ animationDelay: "0.2s" }}
+                                    />
                                   </div>
-                                  <span className="text-sm text-muted-foreground">AI 正在思考...</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    AI 正在思考...
+                                  </span>
                                 </div>
                               ) : (
                                 msg.content || ""
@@ -870,28 +1005,37 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                       ))}
 
                       {/* 显示思考过程 */}
-                      {currentSessionId && thinkingStates.get(currentSessionId) && (
-                        <div className="flex gap-3 justify-start">
-                          <div className="shrink-0">
-                            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                              <Bot className="h-4 w-4 text-purple-600" />
-                            </div>
-                          </div>
-                          <div className="max-w-[70%] rounded-lg px-4 py-2 bg-purple-50 border border-purple-200">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="flex gap-1">
-                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
-                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+                      {currentSessionId &&
+                        thinkingStates.get(currentSessionId) && (
+                          <div className="flex gap-3 justify-start">
+                            <div className="shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                                <Bot className="h-4 w-4 text-purple-600" />
                               </div>
-                              <span className="text-sm text-purple-600 font-medium">AI 正在深度思考...</span>
                             </div>
-                            <div className="text-sm text-purple-700 whitespace-pre-wrap bg-white rounded p-2 border border-purple-100">
-                              {thinkingStates.get(currentSessionId)}
+                            <div className="max-w-[70%] rounded-lg px-4 py-2 bg-purple-50 border border-purple-200">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                                  <div
+                                    className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
+                                    style={{ animationDelay: "0.2s" }}
+                                  />
+                                  <div
+                                    className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
+                                    style={{ animationDelay: "0.4s" }}
+                                  />
+                                </div>
+                                <span className="text-sm text-purple-600 font-medium">
+                                  AI 正在深度思考...
+                                </span>
+                              </div>
+                              <div className="text-sm text-purple-700 whitespace-pre-wrap bg-white rounded p-2 border border-purple-100">
+                                {thinkingStates.get(currentSessionId)}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
                       <div ref={messagesEndRef} />
                     </div>
@@ -981,11 +1125,15 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                       disabled={isLoading || !connectionStatus?.connected}
                       className="flex-1 min-h-[44px] max-h-32 resize-none overflow-y-auto"
                       rows={1}
-                      style={{ height: '44px' }}
+                      style={{ height: "44px" }}
                     />
                     <Button
                       onClick={handleSendMessage}
-                      disabled={!message.trim() || isLoading || !connectionStatus?.connected}
+                      disabled={
+                        !message.trim() ||
+                        isLoading ||
+                        !connectionStatus?.connected
+                      }
                       size="icon"
                       className="shrink-0"
                     >
@@ -1008,7 +1156,9 @@ export function ChatDialog({ open, onOpenChange }: Omit<ChatDialogProps, 'userId
                 ) : (
                   <div className="text-center">
                     <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">选择一个对话开始聊天</p>
+                    <p className="text-muted-foreground">
+                      选择一个对话开始聊天
+                    </p>
                   </div>
                 )}
               </div>

@@ -8,8 +8,12 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { use } from "react";
 import { useLocale } from "@/hooks/useLocale";
+import { useParams } from "next/navigation";
+import { Locale } from "@/dictionaries";
 
-export default function StoragePage({ params, }: {
+export default function StoragePage({
+  params,
+}: {
   params: Promise<{ id: string }>;
 }) {
   // 先调用所有 hooks
@@ -21,15 +25,16 @@ export default function StoragePage({ params, }: {
     formState: { errors },
   } = useForm<S3StorageConfiguration & { name: string }>();
   const { mutate } = trpcClientReact.storage.createStorage.useMutation();
-
+  const param = useParams();
+  const locale = param.locale as Locale;
   // 然后使用 use() 解析 Promise
   const { id } = use(params);
 
   const onSubmit: SubmitHandler<S3StorageConfiguration & { name: string }> = (
-    data
+    data,
   ) => {
     mutate(data);
-    router.push(`/dashboard/apps/${id}/storage`);
+    router.push(`/${locale}/dashboard/apps/${id}/storage`);
   };
 
   return (

@@ -3,7 +3,7 @@ import { eq, desc, and, isNull } from "drizzle-orm";
 import { protectedProcedure, router } from "../trpc";
 import { db } from "../db/db";
 import { chatSessions, chatMessages } from "../db/schema";
-import { ollamaClient } from "../services/ollamaClient";
+import { langchainService } from "@/services/langchain/LangChainService";
 import { ragService, type RAGDocument } from "../services/ragService";
 
 export const chatRoutes = router({
@@ -13,7 +13,7 @@ export const chatRoutes = router({
       z.object({
         title: z.string().optional(),
         model: z.string().optional(),
-      })
+      }),
     )
     .mutation(async ({ input, ctx }) => {
       const [session] = await db
@@ -22,7 +22,7 @@ export const chatRoutes = router({
           id: crypto.randomUUID(),
           title: input.title || "新对话",
           userId: ctx.session.user.id,
-          model: input.model || "qwen2.5:0.5b",
+          model: input.model || "openai/doubao-seed-2-0-pro-260215",
         })
         .returning();
 
@@ -30,21 +30,20 @@ export const chatRoutes = router({
     }),
 
   // 获取用户的聊天会话列表
-  getSessions: protectedProcedure
-    .query(async ({ ctx }) => {
-      const sessions = await db
-        .select()
-        .from(chatSessions)
-        .where(
-          and(
-            eq(chatSessions.userId, ctx.session.user.id),
-            isNull(chatSessions.deletedAt)
-          )
-        )
-        .orderBy(desc(chatSessions.updatedAt));
+  getSessions: protectedProcedure.query(async ({ ctx }) => {
+    const sessions = await db
+      .select()
+      .from(chatSessions)
+      .where(
+        and(
+          eq(chatSessions.userId, ctx.session.user.id),
+          isNull(chatSessions.deletedAt),
+        ),
+      )
+      .orderBy(desc(chatSessions.updatedAt));
 
-      return sessions;
-    }),
+    return sessions;
+  }),
 
   // 获取会话详情和消息
   getSession: protectedProcedure
@@ -57,8 +56,8 @@ export const chatRoutes = router({
           and(
             eq(chatSessions.id, input.sessionId),
             eq(chatSessions.userId, ctx.session.user.id), // 确保用户只能访问自己的会话
-            isNull(chatSessions.deletedAt)
-          )
+            isNull(chatSessions.deletedAt),
+          ),
         )
         .limit(1);
 
@@ -86,7 +85,7 @@ export const chatRoutes = router({
         content: z.string(),
         model: z.string().optional(),
         useRAG: z.boolean().default(false), // 是否使用RAG
-      })
+      }),
     )
     .mutation(async ({ input, ctx }) => {
       // 首先验证会话属于当前用户
@@ -97,8 +96,8 @@ export const chatRoutes = router({
           and(
             eq(chatSessions.id, input.sessionId),
             eq(chatSessions.userId, ctx.session.user.id),
-            isNull(chatSessions.deletedAt)
-          )
+            isNull(chatSessions.deletedAt),
+          ),
         )
         .limit(1);
 
@@ -127,7 +126,7 @@ export const chatRoutes = router({
             input.content,
             input.sessionId,
             ctx.session.user.id,
-            input.model
+            input.model,
           );
           aiResponse = ragResponse.answer;
           sources = ragResponse.sources;
@@ -140,19 +139,17 @@ export const chatRoutes = router({
             .where(eq(chatMessages.sessionId, input.sessionId))
             .orderBy(chatMessages.createdAt);
 
-          // 准备发送给 Ollama 的消息格式
-          const ollamaMessages = messages.map((msg: { role: string; content: string }) => ({
-            role: msg.role as "user" | "assistant" | "system",
-            content: msg.content,
-          }));
+          // 使用 LangChain Service 发送请求
+          const response = await langchainService.sendMessage({
+            modelId: input.model || "openai/doubao-seed-2-0-pro-260215",
+            messages: messages.map((msg) => ({
+              role: msg.role as "user" | "assistant" | "system",
+              content: msg.content,
+            })),
+            options: {},
+          });
 
-          // 设置模型
-          if (input.model) {
-            ollamaClient.setModel(input.model);
-          }
-
-          // 获取 AI 回复
-          aiResponse = await ollamaClient.chat(ollamaMessages);
+          aiResponse = response.content;
         }
 
         // 保存 AI 回复
@@ -179,7 +176,7 @@ export const chatRoutes = router({
         };
       } catch (error) {
         console.error("Chat error:", error);
-        
+
         // 保存错误消息
         const [errorMessage] = await db
           .insert(chatMessages)
@@ -209,8 +206,8 @@ export const chatRoutes = router({
         .where(
           and(
             eq(chatSessions.id, input.sessionId),
-            eq(chatSessions.userId, ctx.session.user.id)
-          )
+            eq(chatSessions.userId, ctx.session.user.id),
+          ),
         );
 
       return { success: true };
@@ -222,20 +219,20 @@ export const chatRoutes = router({
       z.object({
         sessionId: z.string(),
         title: z.string(),
-      })
+      }),
     )
     .mutation(async ({ input, ctx }) => {
       const [session] = await db
         .update(chatSessions)
-        .set({ 
+        .set({
           title: input.title,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(
           and(
             eq(chatSessions.id, input.sessionId),
-            eq(chatSessions.userId, ctx.session.user.id)
-          )
+            eq(chatSessions.userId, ctx.session.user.id),
+          ),
         )
         .returning();
 
@@ -245,35 +242,31 @@ export const chatRoutes = router({
   // 获取可用的模型列表
   getAvailableModels: protectedProcedure.query(async () => {
     try {
-      const models = await ollamaClient.listModels();
+      const models = await langchainService.getAvailableModels();
       return {
-        models,
-        currentModel: ollamaClient.getModel(),
+        models: models.map((m) => ({
+          id: m.id,
+          name: m.name,
+          provider: m.providerId,
+        })),
+        currentModel: "openai/doubao-seed-2-0-pro-260215",
       };
     } catch (error) {
       console.error("Failed to get models:", error);
       return {
         models: [],
-        currentModel: ollamaClient.getModel(),
+        currentModel: "openai/doubao-seed-2-0-pro-260215",
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }),
 
-  // 检查 Ollama 连接状态
+  // 检查连接状态
   checkConnection: protectedProcedure.query(async () => {
-    try {
-      const isAvailable = await ollamaClient.isModelAvailable();
-      return {
-        connected: isAvailable,
-        model: ollamaClient.getModel(),
-      };
-    } catch (error) {
-      return {
-        connected: false,
-        model: ollamaClient.getModel(),
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    // 简单返回 true，或者可以尝试调用一次 LangChain 的简单请求
+    return {
+      connected: true,
+      model: "openai/doubao-seed-2-0-pro-260215",
+    };
   }),
 });

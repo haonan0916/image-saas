@@ -118,6 +118,10 @@ pnpm run dev
 └── ...
 ```
 
+## 项目运行截图
+
+![alt AI Chat](snapshot/AI%20Chat.png)
+
 ## 许可证
 
 [MIT](LICENSE)

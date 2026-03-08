@@ -16,7 +16,7 @@ import { agentService } from "@/services/langchain/AgentService";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, userId = "test-user", userPlan = "free", modelId } = body;
+    const { message, userId = "test-user", userPlan = "free", modelId, sessionId } = body;
 
     if (!message) {
       return NextResponse.json(
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
         userId,
         userPlan,
         modelId: modelId || "ollama/qwen3:0.6b",
+        sessionId,
       }
     );
 

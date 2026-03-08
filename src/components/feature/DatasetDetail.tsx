@@ -5,8 +5,23 @@ import { trpcClientReact, trpcPureClient } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   ArrowLeft,
   Upload,
@@ -15,12 +30,14 @@ import {
   Download,
   Eye,
   X,
-  Settings
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import Uppy from "@uppy/core";
 import { useLocale } from "@/hooks/useLocale";
+import { useParams } from "next/navigation";
+import { Locale } from "@/dictionaries";
 
 interface DatasetDetailProps {
   datasetId: string;
@@ -37,20 +54,26 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
 
   const utils = trpcClientReact.useUtils();
 
+  const param = useParams();
+  const locale = param.locale as Locale;
+
   // 获取数据集详情
-  const { data: dataset, isLoading } = trpcClientReact.datasets.getDataset.useQuery(datasetId);
+  const { data: dataset, isLoading } =
+    trpcClientReact.datasets.getDataset.useQuery(datasetId);
 
   // 检查存储配置
   const hasStorageConfig = dataset?.app?.storage;
 
   // 上传图片到数据集
-  const uploadImageMutation = trpcClientReact.datasets.addImageToDataset.useMutation({
-    onSuccess: () => {
-      utils.datasets.getDataset.invalidate(datasetId);
-    },    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  const uploadImageMutation =
+    trpcClientReact.datasets.addImageToDataset.useMutation({
+      onSuccess: () => {
+        utils.datasets.getDataset.invalidate(datasetId);
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    });
 
   // 监听 Uppy 上传事件，仿照 FileList 的方式
   useEffect(() => {
@@ -66,7 +89,9 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
           });
 
           // 2. 获取图片尺寸
-          const getImageDimensions = (file: File): Promise<{ width: number; height: number }> => {
+          const getImageDimensions = (
+            file: File,
+          ): Promise<{ width: number; height: number }> => {
             return new Promise((resolve) => {
               const img = new Image();
               img.onload = () => {
@@ -79,7 +104,10 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
             });
           };
 
-          const dimensions = file.data instanceof File ? await getImageDimensions(file.data) : { width: 0, height: 0 };
+          const dimensions =
+            file.data instanceof File
+              ? await getImageDimensions(file.data)
+              : { width: 0, height: 0 };
 
           // 3. 添加图片到数据集
           await uploadImageMutation.mutateAsync({
@@ -92,11 +120,14 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
             height: dimensions.height || undefined,
           });
 
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Successfully uploaded and saved to dataset:', savedFile.url);
+          if (process.env.NODE_ENV === "development") {
+            console.log(
+              "Successfully uploaded and saved to dataset:",
+              savedFile.url,
+            );
           }
         } catch (error) {
-          console.error('Failed to save file to dataset:', error);
+          console.error("Failed to save file to dataset:", error);
           toast.error("保存到数据集失败");
         }
       }
@@ -110,7 +141,7 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
 
       // 清理 Uppy 中的文件，防止切换到文件管理标签页时弹出 UploadPreview
       const files = uppy.getFiles();
-      files.forEach(file => {
+      files.forEach((file) => {
         uppy.removeFile(file.id);
       });
     };
@@ -152,15 +183,16 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
   };
 
   // 删除图片
-  const removeImageMutation = trpcClientReact.datasets.removeImageFromDataset.useMutation({
-    onSuccess: () => {
-      toast.success("图片删除成功");
-      utils.datasets.getDataset.invalidate(datasetId);
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  const removeImageMutation =
+    trpcClientReact.datasets.removeImageFromDataset.useMutation({
+      onSuccess: () => {
+        toast.success("图片删除成功");
+        utils.datasets.getDataset.invalidate(datasetId);
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    });
 
   const handleRemoveImage = (imageId: string) => {
     removeImageMutation.mutate(imageId);
@@ -218,7 +250,9 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
           </Button>
           <div>
             <h2 className="text-2xl font-semibold">{dataset.name}</h2>
-            <p className="text-muted-foreground">{dataset.description || dict.common.noDescription}</p>
+            <p className="text-muted-foreground">
+              {dataset.description || dict.common.noDescription}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -232,7 +266,10 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
             disabled={!hasStorageConfig}
           />
           <Button asChild disabled={!hasStorageConfig}>
-            <label htmlFor="image-upload" className={`cursor-pointer ${!hasStorageConfig ? 'cursor-not-allowed opacity-50' : ''}`}>
+            <label
+              htmlFor="image-upload"
+              className={`cursor-pointer ${!hasStorageConfig ? "cursor-not-allowed opacity-50" : ""}`}
+            >
               <Upload className="h-4 w-4 mr-2" />
               上传图片
             </label>
@@ -253,18 +290,24 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">类型</p>
-              <p className="font-medium">{dataset.type === "system" ? "系统" : "自定义"}</p>
+              <p className="font-medium">
+                {dataset.type === "system" ? "系统" : "自定义"}
+              </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">创建时间</p>
               <p className="font-medium">
-                {dataset.createdAt ? new Date(dataset.createdAt).toLocaleDateString() : dict.tasks.unknown}
+                {dataset.createdAt
+                  ? new Date(dataset.createdAt).toLocaleDateString()
+                  : dict.tasks.unknown}
               </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">最后更新</p>
               <p className="font-medium">
-                {dataset.updatedAt ? new Date(dataset.updatedAt).toLocaleDateString() : dict.tasks.unknown}
+                {dataset.updatedAt
+                  ? new Date(dataset.updatedAt).toLocaleDateString()
+                  : dict.tasks.unknown}
               </p>
             </div>
           </div>
@@ -289,7 +332,10 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
         {dataset.images && dataset.images.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {dataset.images.map((image) => (
-              <Card key={image.id} className="overflow-hidden hover:shadow-md transition-shadow">
+              <Card
+                key={image.id}
+                className="overflow-hidden hover:shadow-md transition-shadow"
+              >
                 <div className="aspect-square relative group">
                   <img
                     src={image.originalUrl}
@@ -297,17 +343,20 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
                     className="w-full h-full object-cover"
                     crossOrigin="anonymous"
                     onError={(e) => {
-                      if (process.env.NODE_ENV === 'development') {
-                        console.error('Failed to load image:', image.originalUrl);
+                      if (process.env.NODE_ENV === "development") {
+                        console.error(
+                          "Failed to load image:",
+                          image.originalUrl,
+                        );
                       }
                       const img = e.target as HTMLImageElement;
 
                       // 如果还没有尝试过不带crossOrigin的加载，则重试
                       if (img.crossOrigin) {
-                        if (process.env.NODE_ENV === 'development') {
-                          console.log('Retrying without crossOrigin...');
+                        if (process.env.NODE_ENV === "development") {
+                          console.log("Retrying without crossOrigin...");
                         }
-                        img.crossOrigin = '';
+                        img.crossOrigin = "";
                         img.src = image.originalUrl;
                       } else {
                         // 最终回退到占位符
@@ -315,8 +364,11 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
                       }
                     }}
                     onLoad={() => {
-                      if (process.env.NODE_ENV === 'development') {
-                        console.log('Successfully loaded image:', image.originalUrl);
+                      if (process.env.NODE_ENV === "development") {
+                        console.log(
+                          "Successfully loaded image:",
+                          image.originalUrl,
+                        );
                       }
                     }}
                   />
@@ -331,7 +383,7 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => window.open(image.originalUrl, '_blank')}
+                      onClick={() => window.open(image.originalUrl, "_blank")}
                     >
                       <Download className="h-4 w-4" />
                     </Button>
@@ -349,7 +401,8 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
                         <AlertDialogHeader>
                           <AlertDialogTitle>确认删除</AlertDialogTitle>
                           <AlertDialogDescription>
-                            确定要删除图片 &ldquo;{image.name || "未命名图片"}&rdquo; 吗？此操作不可撤销。
+                            确定要删除图片 &ldquo;{image.name || "未命名图片"}
+                            &rdquo; 吗？此操作不可撤销。
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -370,7 +423,9 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
                   <div className="text-xs text-muted-foreground mt-1">
                     <p>{formatFileSize(image.size)}</p>
                     {image.width && image.height && (
-                      <p>{image.width} × {image.height}</p>
+                      <p>
+                        {image.width} × {image.height}
+                      </p>
                     )}
                   </div>
                 </CardContent>
@@ -381,14 +436,16 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
           <div className="text-center py-12 border-2 border-dashed border-muted rounded-lg">
             <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">暂无图片</h3>
-            <p className="text-muted-foreground mb-4">
-              上传图片到这个数据集
-            </p>
+            <p className="text-muted-foreground mb-4">上传图片到这个数据集</p>
             {!hasStorageConfig ? (
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">需要先配置存储设置</p>
+                <p className="text-sm text-muted-foreground">
+                  需要先配置存储设置
+                </p>
                 <Button asChild variant="outline">
-                  <Link href={`/dashboard/apps/${dataset?.appId}/setting/storage`}>
+                  <Link
+                    href={`/${locale}/dashboard/apps/${dataset?.appId}/setting/storage`}
+                  >
                     <Settings className="h-4 w-4 mr-2" />
                     配置存储
                   </Link>
@@ -405,7 +462,10 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
                   id="empty-state-upload"
                 />
                 <Button asChild>
-                  <label htmlFor="empty-state-upload" className="cursor-pointer">
+                  <label
+                    htmlFor="empty-state-upload"
+                    className="cursor-pointer"
+                  >
                     <Upload className="h-4 w-4 mr-2" />
                     上传图片
                   </label>
@@ -417,12 +477,19 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
       </div>
 
       {/* 图片预览对话框 */}
-      <Dialog open={Boolean(showImagePreview)} onOpenChange={() => setShowImagePreview(null)}>
+      <Dialog
+        open={Boolean(showImagePreview)}
+        onOpenChange={() => setShowImagePreview(null)}
+      >
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               图片预览
-              <Button variant="ghost" size="sm" onClick={() => setShowImagePreview(null)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowImagePreview(null)}
+              >
                 <X className="h-4 w-4" />
               </Button>
             </DialogTitle>
@@ -454,13 +521,18 @@ export function DatasetDetail({ datasetId, onBack, uppy }: DatasetDetailProps) {
                 {Array.from(uploadFiles).map((file, index) => (
                   <div key={index} className="text-sm flex justify-between">
                     <span>{file.name}</span>
-                    <span className="text-muted-foreground">{formatFileSize(file.size)}</span>
+                    <span className="text-muted-foreground">
+                      {formatFileSize(file.size)}
+                    </span>
                   </div>
                 ))}
               </div>
             )}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowUploadDialog(false)}
+              >
                 取消
               </Button>
               <Button onClick={handleUploadFiles} disabled={uploading}>

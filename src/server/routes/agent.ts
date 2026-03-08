@@ -19,7 +19,7 @@ export const agentRoutes = router({
           z.object({
             role: z.enum(["user", "assistant", "system"]),
             content: z.string(),
-          })
+          }),
         ),
         modelId: z.string().optional(),
         sessionId: z.string().optional(),
@@ -29,7 +29,7 @@ export const agentRoutes = router({
             maxTokens: z.number().min(1).max(8000).optional(),
           })
           .optional(),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -38,7 +38,8 @@ export const agentRoutes = router({
           temperature: input.options?.temperature,
           maxTokens: input.options?.maxTokens,
           userId: ctx.session.user.id,
-          userPlan: ctx.plan,
+          userPlan: ctx.plan || "free",
+          sessionId: input.sessionId,
         });
 
         return {
@@ -68,7 +69,7 @@ export const agentRoutes = router({
           z.object({
             role: z.enum(["user", "assistant", "system"]),
             content: z.string(),
-          })
+          }),
         ),
         modelId: z.string().optional(),
         sessionId: z.string().optional(),
@@ -78,7 +79,7 @@ export const agentRoutes = router({
             maxTokens: z.number().min(1).max(8000).optional(),
           })
           .optional(),
-      })
+      }),
     )
     .subscription(async ({ ctx, input }) => {
       return observable<{ content: string; isComplete: boolean }>((emit) => {
@@ -89,7 +90,8 @@ export const agentRoutes = router({
               temperature: input.options?.temperature,
               maxTokens: input.options?.maxTokens,
               userId: ctx.session.user.id,
-              userPlan: ctx.plan,
+              userPlan: ctx.plan || "free",
+              sessionId: input.sessionId,
             });
 
             for await (const chunk of stream) {
@@ -104,7 +106,7 @@ export const agentRoutes = router({
                 code: "INTERNAL_SERVER_ERROR",
                 message: "Failed to stream agent response",
                 cause: error,
-              })
+              }),
             );
           }
         })();
@@ -144,7 +146,8 @@ export const agentRoutes = router({
         },
         {
           name: "create_application",
-          description: "Create a new application (storage is configured separately)",
+          description:
+            "Create a new application (storage is configured separately)",
           category: "application_management",
         },
         {

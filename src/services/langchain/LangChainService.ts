@@ -3,8 +3,19 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatOllama } from "@langchain/ollama";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { ChatMessage, ChatRequest, ChatResponse, ChatStreamChunk, ModelProvider } from "../../types/langchain";
-import { HumanMessage, AIMessage, SystemMessage, BaseMessage } from "@langchain/core/messages";
+import {
+  ChatMessage,
+  ChatRequest,
+  ChatResponse,
+  ChatStreamChunk,
+  ModelProvider,
+} from "../../types/langchain";
+import {
+  HumanMessage,
+  AIMessage,
+  SystemMessage,
+  BaseMessage,
+} from "@langchain/core/messages";
 
 export class LangChainService {
   private static instance: LangChainService;
@@ -23,20 +34,31 @@ export class LangChainService {
    * modelId 格式: "provider/model-name"
    */
   public getModel(modelId: string, options): BaseChatModel {
-    const [provider, modelName] = modelId.split("/");
+    // 处理 modelId，如果包含 / 则分割，否则默认为 openai (兼容旧逻辑)
+    let provider = ModelProvider.OPENAI;
+    let modelName = modelId;
+
+    if (modelId.includes("/")) {
+      const parts = modelId.split("/");
+      provider = parts[0] as ModelProvider;
+      modelName = parts.slice(1).join("/");
+    }
+
     const temperature = options.temperature ?? 0.7;
     const maxTokens = options.maxTokens ?? 2048;
 
     switch (provider.toLowerCase()) {
       case ModelProvider.OPENAI:
         return new ChatOpenAI({
-          modelName: modelName || "gpt-3.5-turbo",
+          modelName: modelName || "doubao-seed-2-0-pro-260215",
           temperature,
           maxTokens,
           apiKey: process.env.OPENAI_API_KEY,
           configuration: {
-            baseURL: process.env.OPENAI_BASE_URL,
-          }
+            baseURL:
+              process.env.OPENAI_BASE_URL ||
+              "https://ark.cn-beijing.volces.com/api/v3",
+          },
         });
       case ModelProvider.ANTHROPIC:
         return new ChatAnthropic({
@@ -84,7 +106,7 @@ export class LangChainService {
    * 发送聊天请求
    */
   public async sendMessage(request: ChatRequest): Promise<ChatResponse> {
-    const modelId = request.modelId || "ollama/qwen3:0.6b";
+    const modelId = request.modelId || "doubao-seed-2-0-pro-260215";
     const model = this.getModel(modelId, request.options);
     const messages = this.convertMessages(request.messages);
 
@@ -94,22 +116,24 @@ export class LangChainService {
     // const response = await modelWithTools.invoke(messages);
 
     const response = await model.invoke(messages);
-    
+
     return {
       content: response.content as string,
       modelId: modelId,
       timestamp: new Date(),
       metadata: {
         usage: response.additional_kwargs?.tokenUsage,
-      }
+      },
     };
   }
 
   /**
    * 发送流式聊天请求
    */
-  public async *sendMessageStream(request: ChatRequest): AsyncIterable<ChatStreamChunk> {
-    const modelId = request.modelId || "ollama/qwen3:0.6b";
+  public async *sendMessageStream(
+    request: ChatRequest,
+  ): AsyncIterable<ChatStreamChunk> {
+    const modelId = request.modelId || "doubao-seed-2-0-pro-260215";
     const model = this.getModel(modelId, request.options);
     const messages = this.convertMessages(request.messages);
 
@@ -138,10 +162,17 @@ export class LangChainService {
   public async getAvailableModels() {
     // 这里可以根据环境变量动态返回，或者返回硬编码的列表
     return [
+      {
+        id: "openai/doubao-seed-2-0-pro-260215",
+        name: "Doubao Seed 2.0 Pro",
+        providerId: "openai",
+      },
       { id: "ollama/qwen3:0.6b", name: "Qwen3 (Ollama)", providerId: "ollama" },
-      { id: "openai/gpt-3.5-turbo", name: "GPT-3.5 Turbo", providerId: "openai" },
-      { id: "openai/gpt-4o", name: "GPT-4o", providerId: "openai" },
-      { id: "anthropic/claude-3-haiku-20240307", name: "Claude 3 Haiku", providerId: "anthropic" },
+      {
+        id: "anthropic/claude-3-haiku-20240307",
+        name: "Claude 3 Haiku",
+        providerId: "anthropic",
+      },
       { id: "google/gemini-pro", name: "Gemini Pro", providerId: "google" },
     ];
   }
